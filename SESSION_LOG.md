@@ -47,11 +47,20 @@ Claude Code ghi vào đây **cuối mỗi phiên**. Hermes `git pull` rồi đ�
 - **`data-facebook` đã ngừng dùng** (`55fadbd` — dựng biển báo ở README). Còn nguyên 3 lỗi trên, đều hỏng âm thầm. Đừng chạy.
 - **`links.txt`** đã có 8 link: 2 reel, 5 post fanpage, 1 group. Kiểm chứng bằng bộ lọc thật của `app.py:806` và `run_hermes.py:95` — nạp 8/8.
 
+### PR
+
+**[#1](https://github.com/anhtienhm/GoogleGPT/pull/1)** — gộp 8 commit vào `main` (+462 / −34, 9 file).
+Trạng thái: `open`, `mergeable_state: clean`, không xung đột.
+
+⚠️ **Repo chưa có CI** — 0 workflow, 0 check chạy trên PR. `python test_exporter.py`
+là cổng kiểm tra duy nhất, phải chạy thủ công trước khi push.
+
 ### Còn treo
 
 | # | Việc | Chờ ai |
 |---|---|---|
-| 1 | Mở PR cho nhánh này | sư phụ |
+| 1 | Review + merge PR #1 | sư phụ |
+| 2 | Biển báo deprecated của `data-facebook` đang nằm trên nhánh, **chưa vào `main`** → người xem trang chính chưa thấy cảnh báo. Mở PR cho repo đó? | sư phụ |
 
 ---
 
