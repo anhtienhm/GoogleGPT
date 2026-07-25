@@ -1,0 +1,237 @@
+---
+
+name: universal-research
+description: Tìm kiếm thông tin đa nguồn, kiểm tra chéo, trích xuất dữ liệu và lưu kết quả có dẫn nguồn.
+--------------------------------------------------------------------------------------------------------
+
+# UNIVERSAL RESEARCH — TÌM KIẾM ĐA NGUỒN
+
+## Mục tiêu
+
+Khi nhận yêu cầu tìm kiếm, không được giới hạn ở một nền tảng.
+
+Hãy tự lựa chọn và kết hợp các nguồn phù hợp để tìm được thông tin đầy đủ, chính xác và mới nhất.
+
+Không chỉ trả lời dựa trên kiến thức sẵn có. Phải sử dụng công cụ tìm kiếm thực tế khi người dùng yêu cầu tìm thông tin mới.
+
+## Nguồn được phép tìm kiếm
+
+Ưu tiên tìm trên:
+
+* Công cụ tìm kiếm web.
+* Website chính thức.
+* Báo điện tử và trang tin.
+* Blog chuyên ngành.
+* Diễn đàn công khai.
+* Fanpage và nội dung mạng xã hội công khai.
+* YouTube.
+* TikTok công khai.
+* Instagram công khai.
+* X/Twitter.
+* Facebook công khai.
+* Google Maps và website doanh nghiệp.
+* Sàn thương mại điện tử.
+* Website nhà cung cấp.
+* Website tuyển dụng.
+* Website bất động sản.
+* Cổng thông tin đấu thầu.
+* Catalogue và tài liệu PDF.
+* Google Drive được cấp quyền.
+* File trên máy tính.
+* API hoặc MCP đã được kết nối.
+
+## Quy trình bắt buộc
+
+Khi nhận nhiệm vụ:
+
+1. Xác định chính xác thông tin cần tìm.
+2. Tạo nhiều biến thể từ khóa:
+
+   * Từ khóa chính.
+   * Từ đồng nghĩa.
+   * Từ khóa không dấu.
+   * Từ khóa tiếng Anh nếu phù hợp.
+   * Từ khóa ghép địa phương.
+   * Tên thương hiệu hoặc doanh nghiệp.
+3. Chọn nguồn tìm kiếm phù hợp.
+4. Dùng `web_search` để tìm rộng.
+5. Dùng `web_extract` để đọc nội dung các URL phù hợp.
+6. Dùng browser khi website cần:
+
+   * Cuộn trang.
+   * Bấm nút.
+   * Chọn bộ lọc.
+   * Tải thêm kết quả.
+   * Đọc nội dung động.
+7. Nếu nguồn đầu tiên không đủ dữ liệu, tự chuyển sang nguồn khác.
+8. Kiểm tra chéo thông tin quan trọng bằng ít nhất hai nguồn khi có thể.
+9. Loại bỏ kết quả trùng lặp.
+10. Không bịa URL, dữ liệu, ngày tháng hoặc số liệu.
+
+## Chiến lược chuyển nguồn
+
+Nếu Facebook không tìm được, thử:
+
+1. Google với `site:facebook.com`.
+2. Bing hoặc DuckDuckGo.
+3. Fanpage hoặc website chính thức của doanh nghiệp.
+4. Instagram hoặc TikTok của cùng thương hiệu.
+5. YouTube.
+6. Google Maps.
+7. Website quảng cáo, catalogue hoặc landing page.
+8. Công cụ thu thập dữ liệu qua API như Apify, khi đã được cấu hình.
+
+Nếu website yêu cầu đăng nhập:
+
+* Không dừng toàn bộ nhiệm vụ.
+* Bỏ qua kết quả bị chặn.
+* Tiếp tục tìm ở nguồn khác.
+* Chỉ yêu cầu đăng nhập khi nguồn đó thực sự bắt buộc và không có nguồn thay thế.
+
+## Các chế độ tìm kiếm
+
+### 1. Tìm thông tin doanh nghiệp
+
+Tìm:
+
+* Tên doanh nghiệp.
+* Website.
+* Fanpage.
+* Địa chỉ.
+* Số điện thoại công khai.
+* Sản phẩm và dịch vụ.
+* Khu vực hoạt động.
+* Nội dung quảng cáo.
+* Đánh giá công khai.
+* Các kênh mạng xã hội.
+
+### 2. Tìm đối thủ
+
+Tìm:
+
+* Đối thủ đang hoạt động.
+* Website và fanpage.
+* Nội dung quảng cáo.
+* Mẫu sản phẩm.
+* Giá công khai.
+* Chương trình khuyến mại.
+* Bình luận và phản hồi công khai.
+* Kênh truyền thông đang sử dụng.
+
+### 3. Tìm nhà cung cấp
+
+Tìm:
+
+* Tên nhà cung cấp.
+* Sản phẩm.
+* Khu vực.
+* Website.
+* Thông tin liên hệ công khai.
+* Catalogue.
+* Báo giá công khai.
+* Chính sách đại lý.
+* Đánh giá và mức độ uy tín.
+
+### 4. Tìm khách hàng tiềm năng
+
+Chỉ sử dụng dữ liệu công khai.
+
+Ưu tiên nội dung thể hiện nhu cầu như:
+
+* Xin giá.
+* Cần tư vấn.
+* Đang xây nhà.
+* Cần thiết kế.
+* Cần thi công.
+* Tìm đơn vị cung cấp.
+* Hỏi địa chỉ hoặc khu vực phục vụ.
+
+Không thu thập dữ liệu riêng tư, không vượt qua quyền truy cập và không tự động spam.
+
+### 5. Tìm tài liệu
+
+Tìm bằng các truy vấn:
+
+* `filetype:pdf`
+* `filetype:xlsx`
+* `filetype:docx`
+* `site:domain`
+* Cụm từ chính xác trong dấu ngoặc kép.
+
+Ưu tiên:
+
+* Tài liệu chính thức.
+* Catalogue.
+* Quy chuẩn.
+* Tiêu chuẩn.
+* Hướng dẫn kỹ thuật.
+* Báo cáo nghiên cứu.
+* Bảng giá công khai.
+
+## Tiêu chuẩn lựa chọn kết quả
+
+Mỗi kết quả cần được đánh giá theo:
+
+* Mức độ liên quan.
+* Độ mới.
+* Độ tin cậy.
+* Nguồn chính thức hay nguồn thứ cấp.
+* Có thể truy cập hay không.
+* Có dữ liệu thực tế hay không.
+* Có trùng với kết quả khác hay không.
+
+Không lấy kết quả chỉ để đủ số lượng.
+
+## Cấu trúc dữ liệu đầu ra
+
+Mỗi kết quả nên có:
+
+* Từ khóa tìm kiếm.
+* Tiêu đề.
+* URL.
+* Nguồn.
+* Loại nguồn.
+* Ngày xuất bản hoặc ngày tìm thấy.
+* Nội dung tóm tắt.
+* Thông tin quan trọng.
+* Mức độ tin cậy.
+* Lý do lựa chọn.
+* Trạng thái truy cập.
+* Ghi chú.
+
+## Báo cáo cuối cùng
+
+Sau khi hoàn thành, báo:
+
+* Đã tìm những nguồn nào.
+* Đã sử dụng những truy vấn nào.
+* Tổng số kết quả kiểm tra.
+* Tổng số kết quả phù hợp.
+* Số kết quả trùng đã loại bỏ.
+* Nguồn nào bị chặn.
+* Những thông tin chưa thể xác minh.
+* Danh sách kết quả tốt nhất.
+* Đường dẫn file đã lưu nếu có.
+
+## Quy tắc bắt buộc
+
+* Không được chỉ tìm một lần rồi kết luận không có.
+* Không được giới hạn ở Google hoặc Facebook.
+* Không được nói “không tìm được” khi chưa thử nguồn thay thế.
+* Không được bịa dữ liệu.
+* Không được vượt CAPTCHA hoặc truy cập trái phép.
+* Không được lấy dữ liệu riêng tư.
+* Không được tuyên bố đã lưu file nếu chưa kiểm tra lại.
+* Nếu kết quả có thể thay đổi theo thời gian, phải ghi ngày tìm kiếm.
+* Nếu thông tin quan trọng, phải kiểm tra chéo.
+* Khi nhiệm vụ quá lớn, chia thành từng nhóm nguồn và xử lý lần lượt.
+
+## Câu lệnh kích hoạt
+
+Người dùng có thể nói:
+
+`/universal-research tìm tất cả thông tin về [chủ đề]`
+
+Hoặc:
+
+`Hãy dùng skill universal-research để tìm [nội dung].`

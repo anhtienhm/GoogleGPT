@@ -1,0 +1,17 @@
+# Hermes / GoogleGPT_Tool — macOS (Apple Silicon & Intel), Windows, Linux
+# Cài: pip install -r requirements.txt
+
+selenium==4.46.0
+beautifulsoup4==4.15.0
+soupsieve==2.9.1
+pandas==3.0.5
+numpy==2.4.6
+
+# THIẾU trong venv_worm gốc -> nguyên nhân ImportError khi chạy run_hermes.py
+requests>=2.32.0
+openpyxl>=3.1.5
+
+# Chỉ cần nếu dùng test_drive.py (Google Drive API)
+# google-api-python-client>=2.100.0
+# google-auth-httplib2>=0.2.0
+# google-auth-oauthlib>=1.2.0

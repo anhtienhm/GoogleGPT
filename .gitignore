@@ -1,0 +1,42 @@
+# --- Secrets ---------------------------------------------------------------
+.env
+*.env.local
+*credential*.json
+token.json
+Ket-noi-hermes-terminal.txt        # ban goc chua API key -> dung docs/*.md
+
+# --- DU LIEU CA NHAN (KHONG BAO GIO COMMIT) --------------------------------
+# Chua ten that, link profile Facebook, SDT cua nguoi dung -> Nghi dinh 13/2023
+links.txt
+raw_comments.txt
+raw_links_temp.txt
+context_save.txt
+*.xlsx
+*.xls
+*.csv
+facebook_comments_result*/
+facebook_comments_data.*
+drive_local/
+
+# --- Python ----------------------------------------------------------------
+__pycache__/
+*.py[cod]
+venv*/
+.venv/
+*.egg-info/
+dist/
+build/
+
+# --- Chrome ----------------------------------------------------------------
+FB_Profile*/
+temp_profile*/
+debug/
+
+# --- OS / IDE --------------------------------------------------------------
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.log
+*.tmp
+nul
