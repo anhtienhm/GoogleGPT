@@ -20,7 +20,12 @@ URL post → scrape_one_post() → robust_parse_comment() → accumulate all_dat
 | `exporter.py` | Export engine: merge, lookup, save Excel (openpyxl) |
 | `config.py` | Cấu hình: token FBnumber (`FB_NUMBER_TOKEN`), Chrome profile path, extension path |
 | `.claude/hooks/auto-push.sh` | Auto-push script — chạy sau mỗi lần sửa file |
-| `links.txt` | Danh sách URL bài viết (1 dòng/link, prefix `STT|URL`) |
+| `links.txt` | Danh sách URL bài viết — 1 dòng/link, **URL trần bắt đầu bằng `http`** |
+
+> ⚠️ `app.py:806` và `run_hermes.py:95` đều lọc `line.strip().startswith("http")`.
+> Dòng có prefix (`1|https://...`), gạch đầu dòng, bullet, dấu nháy, hay thiếu
+> `https://` sẽ bị **bỏ qua âm thầm — không báo lỗi**. Sai định dạng = nạp 0 link
+> mà không có thông báo nào.
 
 ## ⚠️ Bảo mật
 
