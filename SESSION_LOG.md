@@ -49,8 +49,30 @@ Claude Code ghi vào đây **cuối mỗi phiên**. Hermes `git pull` rồi đ�
 
 ### PR
 
-**[#1](https://github.com/anhtienhm/GoogleGPT/pull/1)** — gộp 8 commit vào `main` (+462 / −34, 9 file).
-Trạng thái: `open`, `mergeable_state: clean`, không xung đột.
+**[#1](https://github.com/anhtienhm/GoogleGPT/pull/1)** — gộp 9 commit vào `main`.
+Trạng thái: `open`, không xung đột.
+
+**Codex review bắt được 1 regression thật** (`app.py:195`) — đã sửa ở `21a555c`.
+
+Chính đoạn fallback tên `dir='auto'` khôi phục ở `9d81388` gây ra: khi article
+không có thẻ `<a>` dùng được **và chỉ có duy nhất 1 đoạn text**, đoạn đó là nội
+dung comment chứ không phải tên. Lấy làm `author_name` khiến vòng bóc nội dung
+loại chính nó (`text == author_name`) → `comment_text` rỗng → trả `None` →
+**lead bị bỏ im lặng**.
+
+Nghịch lý: fallback sinh ra để *cứu* lead trong group, nhưng ở tình huống này
+lại *làm mất* lead vốn dĩ vẫn được giữ với tên placeholder.
+
+```
+co fallback  : <div dir="auto">ib giá giúp mình</div>  ->  None
+tat fallback : ->  {'Tên KH': 'Nguoi dung Facebook', 'Comment': 'ib giá giúp mình'}
+```
+
+Sửa: chỉ lấy làm tên khi còn ít nhất 1 đoạn khác làm nội dung. Đã thêm 4 assert
+regression vào `test_exporter.py` nhóm 3.
+
+> **Bài học:** fallback "cứu dữ liệu" cần kiểm tra cả trường hợp nó *làm mất*
+> dữ liệu. Test cũ chỉ phủ ca 2 đoạn (tên + comment), không phủ ca 1 đoạn.
 
 ⚠️ **Repo chưa có CI** — 0 workflow, 0 check chạy trên PR. `python test_exporter.py`
 là cổng kiểm tra duy nhất, phải chạy thủ công trước khi push.
