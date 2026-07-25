@@ -21,6 +21,8 @@ URL post → scrape_one_post() → robust_parse_comment() → accumulate all_dat
 | `config.py` | Cấu hình: token FBnumber (`FB_NUMBER_TOKEN`), Chrome profile path, extension path |
 | `.claude/hooks/auto-push.sh` | Auto-push script — chạy sau mỗi lần sửa file |
 | `ISSUES.md` | Bug report queue — Hermes ghi bug, Claude Code đọc & fix |
+| `SESSION_LOG.md` | Nhật ký phiên — Claude Code ghi cuối mỗi phiên, Hermes pull về đọc |
+| `test_exporter.py` | Test regression 8 nhóm — chạy sau mỗi lần sửa code |
 | `links.txt` | Danh sách URL bài viết — 1 dòng/link, **URL trần bắt đầu bằng `http`** |
 
 > ⚠️ `app.py:806` và `run_hermes.py:95` đều lọc `line.strip().startswith("http")`.
@@ -75,6 +77,24 @@ Hermes phát hiện bug → ghi vào `ISSUES.md`. Claude Code đọc file này *
 - Issues không bao giờ bị xoá — chỉ thêm dòng `**Status:** ✅ fixed in <sha>` khi xong
 - Claude Code `git add ISSUES.md` + commit cùng với file fix
 - Fix xong → chạy `python test_exporter.py` + `auto-push.sh`
+
+## SESSION_LOG.md — BẮT BUỘC cuối mỗi phiên
+
+Trước khi kết thúc phiên, ghi một entry vào `SESSION_LOG.md` rồi commit + push.
+Hermes `git pull` là đọc được, không cần ai chuyển lời qua lại.
+
+### Quy tắc
+- Entry mới đặt **lên trên cùng**, ngay dưới dòng `---` đầu tiên
+- **KHÔNG** sửa hoặc xoá entry cũ — chỉ thêm
+- Dùng khuôn mẫu ở cuối `SESSION_LOG.md` (trong khối comment HTML)
+- Bắt buộc có: nhánh, dải commit, kết quả `test_exporter.py`, trạng thái queue,
+  mục **Cần biết** (thay đổi ảnh hưởng cách chạy), mục **Còn treo** (chờ ai)
+
+### Viết gì cho hữu ích
+- Nêu rõ lỗi **hỏng âm thầm** — loại không crash, chỉ ra dữ liệu rỗng. Đây là
+  thứ Hermes cần biết nhất vì rất dễ tưởng nhầm là "bài viết không có lead"
+- Ghi **tác dụng phụ** của thay đổi (vd: giờ chạy GUI cũng tốn quota API)
+- Đừng chép lại commit message — ghi *hệ quả* với người chạy pipeline
 
 ## Cách chạy
 
