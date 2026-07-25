@@ -26,7 +26,7 @@ URL post → scrape_one_post() → robust_parse_comment() → accumulate all_dat
 
 - **Không commit thư mục `FB_Profile/`** — chứa session cookies Facebook cá nhân
 - **`FB_NUMBER_TOKEN` trong `config.py`** — là token API thật, hardcode để tiện chạy CLI, nhưng cẩn thận khi share repo
-- **Config.py đã có trong `.gitignore`? Nếu chưa, thêm vào**
+- **Đã có trong `.gitignore`**: `.env`, `*.xlsx`, `FB_Profile*/`
 
 ## Auto-push — BẮT BUỘC
 
