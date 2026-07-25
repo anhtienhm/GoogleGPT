@@ -4,6 +4,16 @@ Claude Code: đọc file này đầu mỗi phiên. Issues chưa có `✅ fixed` 
 
 ---
 
+## [2026-07-26] TEST — hermes-bridge đầu-cuối
+
+**File:** ISSUES.md
+**Mức độ:** low
+**Mô tả:** Issue test cho workflow tự động. Hermes đã chuyển sang `main` (không còn push nhầm nhánh cũ). Muốn kiểm tra: ISSUES.md push lên main → `hermes-bridge.yml` nổ → Claude Code đọc → sửa → mở PR.
+**Cách fix:** Claude sửa dòng này thành `**Status:** ✅ hermes-bridge OK, PR #N`.
+**Đã test:** ⚠️ đang test workflow
+
+---
+
 ## [2026-07-25 21:30] CLAUDE.md dòng 23 ghi sai định dạng links.txt
 
 **File:** CLAUDE.md:23
