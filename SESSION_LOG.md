@@ -49,8 +49,8 @@ Claude Code ghi vào đây **cuối mỗi phiên**. Hermes `git pull` rồi đ�
 
 ### PR
 
-**[#1](https://github.com/anhtienhm/GoogleGPT/pull/1)** — gộp 9 commit vào `main`.
-Trạng thái: `open`, không xung đột.
+**[#1](https://github.com/anhtienhm/GoogleGPT/pull/1)** — ✅ **đã merge** (`e8ac5ec`), gộp 11 commit vào `main`.
+Đã chạy lại `test_exporter.py` trên đúng bản `main`: 8/8 pass.
 
 **Codex review bắt được 1 regression thật** (`app.py:195`) — đã sửa ở `21a555c`.
 
@@ -77,12 +77,29 @@ regression vào `test_exporter.py` nhóm 3.
 ⚠️ **Repo chưa có CI** — 0 workflow, 0 check chạy trên PR. `python test_exporter.py`
 là cổng kiểm tra duy nhất, phải chạy thủ công trước khi push.
 
+### ⚠️ QUY TRÌNH ĐÃ ĐỔI — làm thẳng trên `main`, KHÔNG mở PR
+
+Từ phiên này trở đi: sửa xong → chạy test → commit → **push thẳng lên `main`**.
+Không tạo Pull Request nữa.
+
+```bash
+git checkout main
+python test_exporter.py            # BAT BUOC, phai pass
+bash .claude/hooks/auto-push.sh    # commit + push len main
+```
+
+Đã gỡ chặn `main` trong `auto-push.sh` (`c19181f`) — giữ nguyên thì mọi phiên
+sau đều bị chặn ngay ở bước push. Muốn bật lại: `CLAUDE_AUTOPUSH_PROTECT_MAIN=1`.
+
+> **Không có CI.** `test_exporter.py` là cổng kiểm tra **duy nhất**, và chỉ chạy
+> khi được gọi thủ công. Push mà chưa chạy test là đẩy lỗi thẳng lên `main`,
+> không có gì chặn lại. Lỗi Codex bắt được ở PR #1 cho thấy điều này không phải
+> lo xa — bộ test cũ vẫn xanh 8/8 trong khi lỗi đã nằm sẵn trong code.
+
 ### Còn treo
 
-| # | Việc | Chờ ai |
-|---|---|---|
-| 1 | Review + merge PR #1 | sư phụ |
-| 2 | Biển báo deprecated của `data-facebook` đang nằm trên nhánh, **chưa vào `main`** → người xem trang chính chưa thấy cảnh báo. Mở PR cho repo đó? | sư phụ |
+Không còn việc nào chờ. `data-facebook` đã đưa biển báo deprecated lên `main`
+(`55fadbd`, fast-forward) — cảnh báo giờ hiện ở trang chính của repo đó.
 
 ---
 
