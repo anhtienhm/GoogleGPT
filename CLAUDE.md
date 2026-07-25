@@ -98,6 +98,34 @@ finding thứ nhất đã thiếu một nửa — Codex phải báo lại lần 
 > nó chỉ chạy khi được gọi thủ công. Push code chưa chạy test là đẩy thẳng lỗi
 > lên `main`, không có gì chặn lại.
 
+## GitHub Actions — 4 workflow, mỗi cái một việc
+
+| File | Nổ khi | Làm gì |
+|---|---|---|
+| `notify-hermes.yml` | push lên `main` | Chạy `test_exporter.py` rồi bắn Telegram gọi Hermes vào đọc |
+| `hermes-bridge.yml` | push đổi `ISSUES.md` | Claude đọc hàng đợi, sửa, **mở PR** (không đẩy thẳng `main`) |
+| `claude.yml` | tag `@claude` trong issue/PR | Claude trả lời — bản chính thức từ `/install-github-app` |
+| `claude-code-review.yml` | mở/cập nhật PR | Claude tự review PR, cùng với Codex |
+
+**Đừng thêm workflow trả lời `@claude` thứ hai.** Đã từng có `claude-mention.yml`
+trùng trigger với `claude.yml` → mỗi mention chạy hai phiên, trả lời hai lần,
+tốn gấp đôi quota. Đã gỡ.
+
+### Secrets cần có
+
+| Secret | Dùng cho |
+|---|---|
+| `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | `notify-hermes.yml` |
+| `CLAUDE_CODE_OAUTH_TOKEN` | 3 workflow Claude còn lại |
+
+Thiếu secret thì workflow cảnh báo rồi thoát 0, **không** làm hỏng CI.
+
+> Quota: `CLAUDE_CODE_OAUTH_TOKEN` gắn với gói thuê bao, nên mỗi lần workflow
+> Claude chạy là tiêu quota chung với Claude Code hằng ngày. `hermes-bridge`
+> chỉ nổ khi `ISSUES.md` đổi và bỏ qua commit do Claude tạo — thiếu hai chặn
+> đó là thành vòng lặp tự kích hoạt, đốt sạch quota. Muốn chặn tay: thêm
+> `[skip claude]` vào commit message.
+
 ## Auto-push — BẮT BUỘC
 
 Sau **mỗi lần sửa file**, chạy ngay:

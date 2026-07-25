@@ -34,11 +34,11 @@ jobs:
       - name: Kiểm tra đã có khoá chưa
         id: guard
         env:
-          KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          KEY: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
         run: |
           if [ -z "${KEY:-}" ]; then
             echo "co_khoa=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::Chua dat ANTHROPIC_API_KEY trong repo secrets -> bo qua."
+            echo "::warning::Chua dat CLAUDE_CODE_OAUTH_TOKEN trong repo secrets -> bo qua."
           else
             echo "co_khoa=true" >> "$GITHUB_OUTPUT"
           fi
@@ -46,7 +46,7 @@ jobs:
       - if: steps.guard.outputs.co_khoa == 'true'
         uses: anthropics/claude-code-action@v1
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           claude_args: "--max-turns 40"
           prompt: |
             Hermes vừa cập nhật `ISSUES.md` trong repo này. Xử lý hàng đợi bug.
