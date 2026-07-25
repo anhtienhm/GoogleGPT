@@ -83,7 +83,7 @@ class HermesSkills:
 
     # ------------------------------------------------------------------ 1 ---
     @staticmethod
-    def skill_read_and_scrape(headless=False) -> bool:
+    def skill_read_and_scrape(headless=False, no_fbnumber=False) -> bool:
         """[SKILL 1] Đọc links.txt -> gọi app.py từng link -> gom vào raw_comments.txt"""
         if not config.LINKS_FILE.exists():
             print(f"LỖI SKILL 1: Không tìm thấy '{config.LINKS_FILE}'.")
@@ -115,6 +115,11 @@ class HermesSkills:
             cmd = [config.PYTHON_BIN, "app.py", link, "--out", str(tmp_excel)]
             if headless:
                 cmd.append("--headless")
+            # FBnumber chạy mặc định ở CẢ hai chế độ, nên phải chuyển tiếp cờ
+            # tắt xuống app.py — không có dòng này thì `--no-fbnumber` bị nuốt
+            # im lặng và chạy debug vẫn tiêu quota API.
+            if no_fbnumber:
+                cmd.append("--no-fbnumber")
 
             result = subprocess.run(
                 cmd,
@@ -344,13 +349,15 @@ def run_console() -> None:
             skills.skill_lay_link_tu_drive(input("Dán link Google Drive: ").strip())
         elif choice == "skill_cao_du_lieu":
             headless = input("Chạy ẩn (headless)? (y/N): ").strip().lower() == 'y'
-            skills.skill_read_and_scrape(headless=headless)
+            no_fbnumber = input("Bỏ qua tra SĐT FBnumber (tiết kiệm quota)? (y/N): ").strip().lower() == 'y'
+            skills.skill_read_and_scrape(headless=headless, no_fbnumber=no_fbnumber)
         elif choice == "skill_loc_deepseek":
             skills.skill_export_excel(skills.skill_deepseek_filter())
         elif choice == "skill_toan_nang":
             headless = input("Chạy ẩn (headless)? (y/N): ").strip().lower() == 'y'
+            no_fbnumber = input("Bỏ qua tra SĐT FBnumber (tiết kiệm quota)? (y/N): ").strip().lower() == 'y'
             print("\\n>>> BẮT ĐẦU CHUỖI TỰ ĐỘNG <<<")
-            if skills.skill_read_and_scrape(headless=headless):
+            if skills.skill_read_and_scrape(headless=headless, no_fbnumber=no_fbnumber):
                 skills.skill_export_excel(skills.skill_deepseek_filter())
             print(">>> HOÀN THÀNH <<<")
         else:
@@ -361,18 +368,21 @@ if __name__ == "__main__":
     # Cho phép chạy không tương tác (Hermes agent gọi qua Telegram):
     #   python run_hermes.py skill_toan_nang
     #   python run_hermes.py skill_toan_nang --headless
+    #   python run_hermes.py skill_toan_nang --no-fbnumber   (khong tieu quota API)
     if len(sys.argv) > 1:
         headless = "--headless" in sys.argv
-        # Loại bỏ --headless khỏi args để không ảnh hưởng so sánh command
-        clean_argv = [a for a in sys.argv[1:] if a != "--headless"]
+        no_fbnumber = "--no-fbnumber" in sys.argv
+        # Loại bỏ các cờ khỏi args để không ảnh hưởng so sánh command
+        _FLAGS = ("--headless", "--no-fbnumber")
+        clean_argv = [a for a in sys.argv[1:] if a not in _FLAGS]
         command = clean_argv[0] if clean_argv else ""
         skills = HermesSkills()
         if command == "skill_cao_du_lieu":
-            skills.skill_read_and_scrape(headless=headless)
+            skills.skill_read_and_scrape(headless=headless, no_fbnumber=no_fbnumber)
         elif command == "skill_loc_deepseek":
             skills.skill_export_excel(skills.skill_deepseek_filter())
         elif command == "skill_toan_nang":
-            if skills.skill_read_and_scrape(headless=headless):
+            if skills.skill_read_and_scrape(headless=headless, no_fbnumber=no_fbnumber):
                 skills.skill_export_excel(skills.skill_deepseek_filter())
         elif command == "config":
             print(config.describe())

@@ -32,6 +32,18 @@ LEAD_KEYWORDS = [
     'sdt', 'sđt', 'zalo', 'dat hang', 'đặt hàng', 'mua'
 ]
 
+# Tu khoa DU MANH de ket luan "doan nay la text comment, khong phai ten nguoi".
+# CO TINH bo cac tu de trung voi ten tieng Viet: 'gia' (Gia Bao), 'mua', 'bn', 'so'.
+# Khop theo RANH GIOI TU, khong phai substring -- 'ib' khong duoc khop trong "Bibi".
+COMMENT_MARKERS = [
+    'ib', 'inbox', 'tu van', 'tư vấn', 'bao nhieu', 'bao nhiêu',
+    'bao gia', 'báo giá', 'xin gia', 'xin giá', 'gia sao', 'giá sao',
+    'sdt', 'sđt', 'zalo', 'dat hang', 'đặt hàng',
+]
+_RE_COMMENT_MARKER = re.compile(
+    r'\b(' + '|'.join(re.escape(k) for k in COMMENT_MARKERS) + r')\b', re.IGNORECASE
+)
+
 # 2. TU KHOA BAN HANG / SPAM / CHU PAGE
 SELLER_KEYWORDS = [
     'xuong e', 'xưởng e', 'xuong minh', 'xưởng mình', 'ben e', 'bên e', 'ben minh', 'bên mình',
@@ -201,7 +213,21 @@ def robust_parse_comment(article, target_url):
         cands = list(dict.fromkeys(cands))
         cands = [b for b in cands if not any(b != o and b in o for o in cands)]
         if len(cands) >= 2 and len(cands[0]) < 50:   # ten, khong phai doan comment dai
-            author_name = cands[0]
+            # Facebook con tach 1 comment thanh NHIEU block dir=auto. Luc do
+            # cands[0] la dong dau cua comment chu khong phai ten -- lay lam ten
+            # thi vong boc noi dung loai no di, keo theo tu khoa mua hang nam
+            # trong do cung mat -> lead bi bo, hoac xuat ra voi Ten KH la mot
+            # manh comment ("ib gia").
+            # Hai dieu kien, phai dat CA HAI:
+            #   1. cands[0] khong chua dau hieu cua text comment (COMMENT_MARKERS)
+            #   2. phan CON LAI van du lam mot lead
+            # Lech ve phia TU CHOI: ten bi bo nham thi lui ve placeholder va UID
+            # backfill van vot lai duoc; con lay nham manh comment lam ten thi
+            # vua ban du lieu vua pha luon viec so khop ten o merge_phone_lookup.
+            rest = " ".join(cands[1:]).lower()
+            if (not _RE_COMMENT_MARKER.search(cands[0])
+                    and any(lkw in rest for lkw in LEAD_KEYWORDS)):
+                author_name = cands[0]
 
     # 5. Trich xuat thoi gian dang
     comment_time = extract_time_strict(article)
