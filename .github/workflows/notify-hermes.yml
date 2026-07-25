@@ -1,0 +1,95 @@
+name: Báo Hermes qua Telegram
+
+# Push len main -> chay test -> ban tin nhan goi Hermes vao doc.
+# Repo public nen GitHub Actions mien phi tren runner tieu chuan.
+on:
+  push:
+    branches: [main]
+
+jobs:
+  test-va-bao:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Cài dependency
+        run: pip install -r requirements.txt
+
+      # continue-on-error: test hong van phai bao Hermes biet, khong im lang.
+      - name: Chạy test_exporter.py
+        id: test
+        continue-on-error: true
+        run: python test_exporter.py
+
+      - name: Gửi Telegram cho Hermes
+        if: always()
+        env:
+          TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          # Truyen qua env, KHONG noi thang vao chuoi shell: commit message la
+          # dau vao tu do, noi thang se thanh lo hong chen lenh.
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+          COMMIT_SHA: ${{ github.sha }}
+          COMMIT_URL: ${{ github.event.head_commit.url }}
+          PUSHER: ${{ github.event.pusher.name }}
+          REPO: ${{ github.repository }}
+          TEST_RESULT: ${{ steps.test.outcome }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${TOKEN:-}" ] || [ -z "${CHAT_ID:-}" ]; then
+            echo "::warning::Chua dat TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID trong repo secrets -> bo qua buoc bao."
+            exit 0
+          fi
+
+          if [ "$TEST_RESULT" = "success" ]; then
+            STATUS="✅ test_exporter.py PASS"
+          else
+            STATUS="❌ test_exporter.py FAIL — ĐỪNG chạy pipeline cho tới khi sửa xong"
+          fi
+
+          # Chi lay dong dau cua commit message cho gon
+          SUBJECT=$(printf '%s' "$COMMIT_MSG" | head -n 1)
+
+          # Dung printf thay vi chuoi nhieu dong: moi dong phai nam trong khoi
+          # YAML, xuong cot 0 la vo block scalar.
+          TEXT=$(printf '%s\n' \
+            "🔔 Claude Code vừa push lên ${REPO}" \
+            "" \
+            "${SUBJECT}" \
+            "${COMMIT_SHA:0:7} · bởi ${PUSHER}" \
+            "${STATUS}" \
+            "" \
+            "Việc của Hermes:" \
+            "1. git pull" \
+            "2. Đọc SESSION_LOG.md (entry trên cùng) — có gì đổi, có gì cần biết" \
+            "3. Đọc ISSUES.md — issue nào chưa có '✅ fixed' là còn tồn" \
+            "" \
+            "Commit: ${COMMIT_URL}" \
+            "Log chạy: ${RUN_URL}")
+
+          # jq -Rn: dong goi JSON an toan, khong vo khi text co dau nhay/xuong dong
+          jq -Rn --arg chat "$CHAT_ID" --arg text "$TEXT" \
+            '{chat_id: $chat, text: $text, disable_web_page_preview: true}' \
+            > payload.json
+
+          curl -sS --fail-with-body -X POST \
+            -H 'Content-Type: application/json' \
+            -d @payload.json \
+            "https://api.telegram.org/bot${TOKEN}/sendMessage" > /dev/null
+
+          echo "Da gui thong bao cho Hermes."
+
+      # Buoc nay chay SAU khi da bao, de test hong van co tin nhan gui di
+      # nhung workflow van hien mau do tren GitHub.
+      - name: Đánh dấu workflow hỏng nếu test fail
+        if: steps.test.outcome != 'success'
+        run: |
+          echo "test_exporter.py that bai — xem log o buoc 'Chay test_exporter.py'."
+          exit 1
