@@ -18,8 +18,36 @@ URL post → scrape_one_post() → robust_parse_comment() → accumulate all_dat
 |------|---------|
 | `app.py` | Scraper chính: Selenium headless, GraphQL interceptor, FBnumber API |
 | `exporter.py` | Export engine: merge, lookup, save Excel (openpyxl) |
-| `config.py` | Cấu hình: token FBnumber, Chrome profile path, extension path |
+| `config.py` | Cấu hình: token FBnumber (`FB_NUMBER_TOKEN`), Chrome profile path, extension path |
+| `.claude/hooks/auto-push.sh` | Auto-push script — chạy sau mỗi lần sửa file |
 | `links.txt` | Danh sách URL bài viết (1 dòng/link, prefix `STT|URL`) |
+
+## ⚠️ Bảo mật
+
+- **Không commit thư mục `FB_Profile/`** — chứa session cookies Facebook cá nhân
+- **`FB_NUMBER_TOKEN` trong `config.py`** — là token API thật, hardcode để tiện chạy CLI, nhưng cẩn thận khi share repo
+- **Config.py đã có trong `.gitignore`? Nếu chưa, thêm vào**
+
+## Auto-push — BẮT BUỘC
+
+Sau **mỗi lần sửa file**, chạy ngay:
+
+```bash
+bash .claude/hooks/auto-push.sh
+```
+
+### Quy tắc
+- Gọi **ngay sau khi sửa**, không chờ nhắc, không gom cuối phiên
+- Script tự retry 3 lần, tự `pull --rebase` khi bị rejected
+- Thoát im lặng khi tree sạch → gọi thừa vô hại, cứ gọi thoải mái
+
+### Script báo lỗi — 3 tình huống
+
+| Lỗi | Xử lý |
+|-----|-------|
+| `main branch is protected` | **KHÔNG** tự set `CLAUDE_AUTOPUSH_ALLOW_PROTECTED=1`. Hỏi user trước. |
+| `Remote conflict: git pull --rebase failed` | **KHÔNG** dùng `--force`. Conflict thật thì cần merge thủ công. |
+| `Permission denied` | Kiểm tra quyền truy cập remote. Báo user. |
 
 ## Cách chạy
 
