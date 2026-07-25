@@ -15,7 +15,7 @@ fi
 AUTOPUSH_ALLOW_PROTECTED="${CLAUDE_AUTOPUSH_ALLOW_PROTECTED:-0}"
 
 # Không có gì để push → im lặng thoát (gọi thừa vô hại)
-if ! git diff --cached --quiet 2>/dev/null && ! git diff --quiet 2>/dev/null; then
+if ! git diff --cached --quiet 2>/dev/null || ! git diff --quiet 2>/dev/null; then
     # Có thay đổi → add và commit
     git add -A
     git commit -m "auto-push: $(date '+%Y-%m-%d %H:%M')" || true
@@ -23,10 +23,15 @@ fi
 
 # Kiểm tra staged changes
 if git diff --cached --quiet 2>/dev/null; then
-    # Không có staged change → thử push các commit chưa push
-    if [ "$(git rev-list HEAD..@{u} 2>/dev/null | wc -l)" -eq 0 ]; then
-        exit 0  # im lặng thoát — tree sạch, up-to-date
+    # Khong co staged change -> thu push cac commit chua push.
+    # @{u}..HEAD = so commit local di TRUOC remote (ahead).
+    # HEAD..@{u} la chieu nguoc lai (behind) -> luon = 0 khi can push -> thoat nham.
+    if git rev-parse --abbrev-ref --symbolic-full-name '@{u}' >/dev/null 2>&1; then
+        if [ "$(git rev-list '@{u}..HEAD' 2>/dev/null | wc -l)" -eq 0 ]; then
+            exit 0  # im lang thoat -- tree sach, khong co gi de push
+        fi
     fi
+    # Chua co upstream -> van chay tiep de push -u tao nhanh tren remote
 fi
 
 # Kiểm tra protected branch (main)
@@ -40,11 +45,14 @@ fi
 MAX_RETRIES=3
 RETRY_DELAY=3
 for i in $(seq 1 "$MAX_RETRIES"); do
-    if git pull --rebase origin "$CURRENT_BRANCH" 2>/dev/null; then
-        if git push origin "$CURRENT_BRANCH" 2>/dev/null; then
-            echo "[auto-push] OK — pushed to $CURRENT_BRANCH"
-            exit 0
-        fi
+    # Chi pull --rebase khi nhanh DA ton tai tren remote. Nhanh moi tinh thi
+    # pull luon that bai -> truoc day khong bao gio push duoc nhanh moi.
+    if git ls-remote --exit-code --heads origin "$CURRENT_BRANCH" >/dev/null 2>&1; then
+        git pull --rebase origin "$CURRENT_BRANCH" 2>/dev/null || true
+    fi
+    if git push -u origin "$CURRENT_BRANCH" 2>/dev/null; then
+        echo "[auto-push] OK — pushed to $CURRENT_BRANCH"
+        exit 0
     fi
     if [ "$i" -lt "$MAX_RETRIES" ]; then
         sleep "$RETRY_DELAY"

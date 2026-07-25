@@ -24,13 +24,16 @@ import pandas as pd
 import requests
 
 import config
+from exporter import norm_phone
 
-# Cột do app.py xuất ra (giữ đồng bộ với COLUMNS trong app.py)
-COL_NAME = "Tên nick FB"
+# Cột do app.py xuất ra — PHẢI khớp exporter.COLUMNS, nếu không df.get() rơi
+# vào giá trị mặc định và mọi dòng đều ra "N/A".
+COL_NAME = "Tên KH"
 COL_COMMENT = "Comment"
-COL_USER_LINK = "Link FB cá nhân"
+COL_PHONE = "SĐT"
+COL_USER_LINK = "Facebook"
 COL_POST_LINK = "Link bài viết"
-COL_TIME = "Thời gian đăng"
+COL_TIME = "Ngày tìm"
 
 PHONE_RE = re.compile(r"(?:(?:\+?84|0)(?:3|5|7|8|9)\d{8})")
 FALLBACK_KEYWORDS = (
@@ -139,7 +142,9 @@ class HermesSkills:
         if not excel_path.exists():
             return 0
         try:
-            df = pd.read_excel(excel_path)
+            # dtype=str: khong de pandas ep cot SĐT thanh float
+            # ("0776791717" -> 776791717.0, mat so 0 dau va them ".0").
+            df = pd.read_excel(excel_path, dtype=str)
         except Exception as exc:
             print(f"   [LỖI] Không đọc được {excel_path.name}: {exc}")
             return 0
@@ -156,11 +161,17 @@ class HermesSkills:
                 comment = str(row.get(COL_COMMENT, "")).strip()
                 if not comment or comment.lower() == "nan":
                     continue
-                phone = PHONE_RE.search(comment)
+                # Ưu tiên cột SĐT (kết quả FBnumber, đã chuẩn hoá giữ số 0 đầu);
+                # chỉ dò regex trên text comment khi cột đó rỗng.
+                phone = norm_phone(row.get(COL_PHONE, ""))
+                if not phone:
+                    m = PHONE_RE.search(comment)
+                    phone = norm_phone(m.group(0)) if m else "N/A"
+
                 dest.write(f"Name: {row.get(COL_NAME, 'N/A')}\n")
                 dest.write(f"Comment: {comment}\n")
                 dest.write(f"User Link: {row.get(COL_USER_LINK, 'N/A')}\n")
-                dest.write(f"Phone: {phone.group(0) if phone else 'N/A'}\n")
+                dest.write(f"Phone: {phone}\n")
                 dest.write(f"Time: {row.get(COL_TIME, 'N/A')}\n")
                 dest.write("-" * 40 + "\n")
         return len(df)

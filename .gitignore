@@ -5,9 +5,15 @@
 token.json
 Ket-noi-hermes-terminal.txt        # ban goc chua API key -> dung docs/*.md
 
+# --- INPUT CONG KHAI (DUOC PHEP COMMIT) ------------------------------------
+# links.txt CO CHU DICH duoc track: chi chua URL bai viet fanpage/reel/group
+# CONG KHAI -- la input seed dung chung, khong phai ket qua scrape.
+# DUNG them lai vao danh sach ignore ben duoi.
+# Neu co lan nao can dan link profile ca nhan vao day -> dung file rieng,
+# dat ten khop mot rule ben duoi (vd raw_links_temp.txt).
+
 # --- DU LIEU CA NHAN (KHONG BAO GIO COMMIT) --------------------------------
 # Chua ten that, link profile Facebook, SDT cua nguoi dung -> Nghi dinh 13/2023
-links.txt
 raw_comments.txt
 raw_links_temp.txt
 context_save.txt

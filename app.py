@@ -50,10 +50,10 @@ ACTION_TEXTS = {
 }
 
 TIME_PATTERN = re.compile(
-    r'^\s*(\d+\s*(giay|phut|gio|ngay|tuan|nam|[smhdwy])\s*$'
-    r'|\d+\s*(Thang|thg)\s*\d+'
+    r'^\s*(\d+\s*(giây|giay|phút|phut|giờ|gio|ngày|ngay|tuần|tuan|năm|nam|[smhdwy])\s*$'
+    r'|\d+\s*(Tháng|Thang|thg)\s*\d+'
     r'|(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s*\d+'
-    r'|Vua xong|Just now)',
+    r'|Vừa xong|Vua xong|Just now)',
     re.IGNORECASE
 )
 
@@ -183,10 +183,30 @@ def robust_parse_comment(article, target_url):
                 author_link = link
                 break
 
-    # 4. Trich xuat thoi gian dang
+    # 4b. Fallback: lay ten tu dir=auto element dau tien.
+    #     Facebook khong render link cho ten trong group -> khong co fallback
+    #     nay thi moi lead trong group deu la "Nguoi dung Facebook".
+    #     CHI lay khi con it nhat 1 doan khac de lam noi dung comment. Neu article
+    #     chi co DUY NHAT 1 doan text thi do la noi dung comment chu khong phai ten:
+    #     lay no lam ten se khien vong boc noi dung ben duoi loai chinh no
+    #     (text == author_name) -> comment rong -> lead bi bo IM LANG.
+    if author_name == "Nguoi dung Facebook":
+        cands = []
+        for el in article.find_all(['div', 'span'], dir='auto'):
+            t = " ".join(el.get_text(' ', strip=True).split())
+            if t and len(t) >= 2 and not is_junk(t) and not TIME_PATTERN.search(t) and not t.isdigit():
+                cands.append(t)
+        # Dedupe + bo doan bi long trong doan khac (div/span dir=auto co the long nhau),
+        # giong het cach vong boc noi dung ben duoi xu ly.
+        cands = list(dict.fromkeys(cands))
+        cands = [b for b in cands if not any(b != o and b in o for o in cands)]
+        if len(cands) >= 2 and len(cands[0]) < 50:   # ten, khong phai doan comment dai
+            author_name = cands[0]
+
+    # 5. Trich xuat thoi gian dang
     comment_time = extract_time_strict(article)
 
-    # 5. Trich xuat noi dung binh luan
+    # 6. Trich xuat noi dung binh luan
     content_parts = []
     for span in article.find_all(['div', 'span'], dir='auto'):
         text = " ".join(span.get_text(' ', strip=True).split())
@@ -204,7 +224,7 @@ def robust_parse_comment(article, target_url):
 
     comment_lower = comment_text.lower()
 
-    # 6. LOC CHAT CHE
+    # 7. LOC CHAT CHE
     if not comment_text or comment_text == "[Anh/Sticker]" or len(comment_text) < 2:
         return None
 
@@ -374,10 +394,10 @@ def click_phone_icons_for_leads(driver):
 def open_reel_comments(driver):
     print("-> Phat hien REEL: dang tim nut mo bang binh luan...")
     selectors = [
-        "//div[@role='button'][@aria-label='Binh luan' or @aria-label='Comment']",
-        "//div[@role='button'][contains(@aria-label, 'inh luan') or contains(@aria-label, 'omment')]",
-        "//span[@role='button'][contains(@aria-label, 'inh luan') or contains(@aria-label, 'omment')]",
-        "//div[@aria-label='Xem binh luan' or @aria-label='View comments']",
+        "//div[@role='button'][@aria-label='Bình luận' or @aria-label='Binh luan' or @aria-label='Comment']",
+        "//div[@role='button'][contains(@aria-label, 'ình luận') or contains(@aria-label, 'inh luan') or contains(@aria-label, 'omment')]",
+        "//span[@role='button'][contains(@aria-label, 'ình luận') or contains(@aria-label, 'inh luan') or contains(@aria-label, 'omment')]",
+        "//div[@aria-label='Xem bình luận' or @aria-label='Xem binh luan' or @aria-label='View comments']",
     ]
     for sel in selectors:
         try:
@@ -805,7 +825,9 @@ if __name__ == "__main__":
     globals()['HEADLESS_MODE'] = args.headless
     driver = create_driver(headless=args.headless)
 
-    if not args.no_fbnumber and args.headless:
+    # FBnumber KHONG phu thuoc headless: interceptor chay duoc o ca 2 che do.
+    # Gan vao args.headless la bug -- help text cua --no-fbnumber ghi "mac dinh: co".
+    if not args.no_fbnumber:
         inject_graphql_interceptor(driver)
         print("-> Da inject GraphQL interceptor (FBnumber).")
 
@@ -840,7 +862,7 @@ if __name__ == "__main__":
     finally:
         # Tra cuu SDT qua FBnumber
         uid_to_phone = {}
-        if not args.no_fbnumber and args.headless and urls:
+        if not args.no_fbnumber and urls:
             print("\n===== DANG TRA CUU SO DIEN THOAI (FBnumber) =====")
             uids, uid_map = collect_uids(driver)
             print(f"-> Tim thay {len(uids)} User IDs, {len(uid_map)} co ten.")

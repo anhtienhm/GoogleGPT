@@ -20,7 +20,15 @@ URL post → scrape_one_post() → robust_parse_comment() → accumulate all_dat
 | `exporter.py` | Export engine: merge, lookup, save Excel (openpyxl) |
 | `config.py` | Cấu hình: token FBnumber (`FB_NUMBER_TOKEN`), Chrome profile path, extension path |
 | `.claude/hooks/auto-push.sh` | Auto-push script — chạy sau mỗi lần sửa file |
-| `links.txt` | Danh sách URL bài viết (1 dòng/link, prefix `STT|URL`) |
+| `ISSUES.md` | Bug report queue — Hermes ghi bug, Claude Code đọc & fix |
+| `SESSION_LOG.md` | Nhật ký phiên — Claude Code ghi cuối mỗi phiên, Hermes pull về đọc |
+| `test_exporter.py` | Test regression 8 nhóm — chạy sau mỗi lần sửa code |
+| `links.txt` | Danh sách URL bài viết — 1 dòng/link, **URL trần bắt đầu bằng `http`** |
+
+> ⚠️ `app.py:806` và `run_hermes.py:95` đều lọc `line.strip().startswith("http")`.
+> Dòng có prefix (`1|https://...`), gạch đầu dòng, bullet, dấu nháy, hay thiếu
+> `https://` sẽ bị **bỏ qua âm thầm — không báo lỗi**. Sai định dạng = nạp 0 link
+> mà không có thông báo nào.
 
 ## ⚠️ Bảo mật
 
@@ -48,6 +56,45 @@ bash .claude/hooks/auto-push.sh
 | `main branch is protected` | **KHÔNG** tự set `CLAUDE_AUTOPUSH_ALLOW_PROTECTED=1`. Hỏi user trước. |
 | `Remote conflict: git pull --rebase failed` | **KHÔNG** dùng `--force`. Conflict thật thì cần merge thủ công. |
 | `Permission denied` | Kiểm tra quyền truy cập remote. Báo user. |
+
+## ISSUES.md Workflow
+
+Hermes phát hiện bug → ghi vào `ISSUES.md`. Claude Code đọc file này **đầu mỗi phiên**, thấy issue chưa có `✅ fixed` thì tự fix.
+
+**Format mỗi issue:**
+```markdown
+## [YYYY-MM-DD HH:MM] Tiêu đề ngắn gọn
+
+**File:** tên-file.py:123
+**Mức độ:** critical | high | medium | low
+**Mô tả:** bug gì, hậu quả thế nào
+**Cách fix:** sửa cụ thể ra sao
+**Đã test:** ✅ / ❌ / ⚠️ chưa test được
+**Status:** (Claude Code điền) ✅ fixed in <commit>
+```
+
+**Quy tắc:**
+- Issues không bao giờ bị xoá — chỉ thêm dòng `**Status:** ✅ fixed in <sha>` khi xong
+- Claude Code `git add ISSUES.md` + commit cùng với file fix
+- Fix xong → chạy `python test_exporter.py` + `auto-push.sh`
+
+## SESSION_LOG.md — BẮT BUỘC cuối mỗi phiên
+
+Trước khi kết thúc phiên, ghi một entry vào `SESSION_LOG.md` rồi commit + push.
+Hermes `git pull` là đọc được, không cần ai chuyển lời qua lại.
+
+### Quy tắc
+- Entry mới đặt **lên trên cùng**, ngay dưới dòng `---` đầu tiên
+- **KHÔNG** sửa hoặc xoá entry cũ — chỉ thêm
+- Dùng khuôn mẫu ở cuối `SESSION_LOG.md` (trong khối comment HTML)
+- Bắt buộc có: nhánh, dải commit, kết quả `test_exporter.py`, trạng thái queue,
+  mục **Cần biết** (thay đổi ảnh hưởng cách chạy), mục **Còn treo** (chờ ai)
+
+### Viết gì cho hữu ích
+- Nêu rõ lỗi **hỏng âm thầm** — loại không crash, chỉ ra dữ liệu rỗng. Đây là
+  thứ Hermes cần biết nhất vì rất dễ tưởng nhầm là "bài viết không có lead"
+- Ghi **tác dụng phụ** của thay đổi (vd: giờ chạy GUI cũng tốn quota API)
+- Đừng chép lại commit message — ghi *hệ quả* với người chạy pipeline
 
 ## Cách chạy
 
@@ -134,6 +181,9 @@ save_excel(all_data, output_filename)                    # atomic write
 | 3 | Row có SĐT từ comment bị skip FBnumber → mất SĐT 2 | Bỏ `continue`, thêm guard `if not _s()` |
 | 4 | Cột Excel trống | Key must match `exporter.COLUMNS` (có dấu: `Ngày tìm`, `Tên KH`, `SĐT`) |
 | 5 | Lead không SĐT vẫn xuất hiện | Filter `[r for r in all_data if r.get("SĐT", "")]` |
+| 6 | Mất dấu tiếng Việt trong XPath/regex → không khớp gì cả | Facebook render **có dấu** ("Bình luận", "2 giờ", "Vừa xong"). `TIME_PATTERN` mất dấu → `is_junk()` không lọc được timestamp; 4 selector của `open_reel_comments()` mất dấu → không mở được bình luận Reel. Luôn giữ **cả hai** biến thể có dấu và không dấu |
+| 7 | FBnumber gắn vào `--headless` → chạy qua Hermes ra ~0 dòng | Bộ lọc SĐT chạy vô điều kiện, mà `run_hermes` mặc định không truyền `--headless` → không tra số → lọc xoá sạch. Đã gỡ `and args.headless`. Tra số **không liên quan** tới việc ẩn cửa sổ Chrome |
+| 8 | `run_hermes.py` đọc Excel ra toàn `N/A` | Tên cột phải khớp `exporter.COLUMNS`: `Tên KH` / `Facebook` / `Ngày tìm` (không phải `Tên nick FB` / `Link FB cá nhân` / `Thời gian đăng`). Và **phải** `pd.read_excel(..., dtype=str)` — pandas ép cột SĐT thành float, `"0776791717"` → `776791717.0` |
 
 ## Debug checklist
 
@@ -145,8 +195,18 @@ Khi Excel thiếu dữ liệu, check theo thứ tự:
 4. **Cột trống?** → key name khớp COLUMNS?
 5. **Sai số lượng lead?** → filter SĐT empty, merge_rows dedup
 
-## File debug
+## Test & debug
 
-- `debug_dom.py` — dump HTML + UID để inspect cấu trúc Facebook
-- `debug_article.py` — debug nested article structure
-- `test_regex.py` — test regex pattern
+| File | Vai trò |
+|------|---------|
+| `test_exporter.py` | **Test regression 8 nhóm** — chạy sau mỗi lần sửa `app.py` / `exporter.py` / `run_hermes.py`. Không cần Selenium, không cần mạng, không cần token thật |
+| `test_drive.py` | Kiểm tra kết nối Google Drive |
+
+```bash
+python test_exporter.py     # exit 0 = pass, exit 1 = có test fail
+```
+
+Mỗi nhóm test gắn với một pitfall ở bảng trên: 1→#1, 2→#2, 4→#6, 5→#3, 6→#3, 7→#4, 8→#8.
+
+> Các file `debug_dom.py`, `debug_article.py`, `test_regex.py` từng được nhắc ở
+> đây **không còn tồn tại** trong repo — đã gỡ khỏi tài liệu.
