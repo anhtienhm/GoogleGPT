@@ -816,7 +816,9 @@ if __name__ == "__main__":
     globals()['HEADLESS_MODE'] = args.headless
     driver = create_driver(headless=args.headless)
 
-    if not args.no_fbnumber and args.headless:
+    # FBnumber KHONG phu thuoc headless: interceptor chay duoc o ca 2 che do.
+    # Gan vao args.headless la bug -- help text cua --no-fbnumber ghi "mac dinh: co".
+    if not args.no_fbnumber:
         inject_graphql_interceptor(driver)
         print("-> Da inject GraphQL interceptor (FBnumber).")
 
@@ -851,7 +853,7 @@ if __name__ == "__main__":
     finally:
         # Tra cuu SDT qua FBnumber
         uid_to_phone = {}
-        if not args.no_fbnumber and args.headless and urls:
+        if not args.no_fbnumber and urls:
             print("\n===== DANG TRA CUU SO DIEN THOAI (FBnumber) =====")
             uids, uid_map = collect_uids(driver)
             print(f"-> Tim thay {len(uids)} User IDs, {len(uid_map)} co ten.")
