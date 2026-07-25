@@ -23,3 +23,13 @@ prefix `STT|`, gạch đầu dòng, bullet, dấu nháy, thiếu `https://`.
 - sau `dict.fromkeys` (dedupe) vẫn 8 — không có link trùng
 
 ---
+
+## [2026-07-25 21:45] TEST — Claude đọc được chưa?
+
+**File:** ISSUES.md
+**Mức độ:** low
+**Mô tả:** Đây là issue test. Hermes muốn kiểm tra workflow tự động: ghi ISSUES.md → push → Claude Code đọc → phản hồi. Nếu Claude đọc được, reply bằng cách sửa dòng này thành `**Status:** ✅ seen by Claude — workflow OK`.
+**Cách fix:** Không cần fix code — chỉ cần confirm đã đọc được.
+**Đã test:** ⚠️ chưa — đang test workflow
+
+---
