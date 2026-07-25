@@ -74,7 +74,7 @@ Hermes phát hiện bug → ghi vào `ISSUES.md`. Claude Code đọc file này *
 **Quy tắc:**
 - Issues không bao giờ bị xoá — chỉ thêm dòng `**Status:** ✅ fixed in <sha>` khi xong
 - Claude Code `git add ISSUES.md` + commit cùng với file fix
-- Fix xong → chạy `test_urls.py` + `auto-push.sh`
+- Fix xong → chạy `python test_exporter.py` + `auto-push.sh`
 
 ## Cách chạy
 
@@ -161,6 +161,9 @@ save_excel(all_data, output_filename)                    # atomic write
 | 3 | Row có SĐT từ comment bị skip FBnumber → mất SĐT 2 | Bỏ `continue`, thêm guard `if not _s()` |
 | 4 | Cột Excel trống | Key must match `exporter.COLUMNS` (có dấu: `Ngày tìm`, `Tên KH`, `SĐT`) |
 | 5 | Lead không SĐT vẫn xuất hiện | Filter `[r for r in all_data if r.get("SĐT", "")]` |
+| 6 | Mất dấu tiếng Việt trong XPath/regex → không khớp gì cả | Facebook render **có dấu** ("Bình luận", "2 giờ", "Vừa xong"). `TIME_PATTERN` mất dấu → `is_junk()` không lọc được timestamp; 4 selector của `open_reel_comments()` mất dấu → không mở được bình luận Reel. Luôn giữ **cả hai** biến thể có dấu và không dấu |
+| 7 | FBnumber gắn vào `--headless` → chạy qua Hermes ra ~0 dòng | Bộ lọc SĐT chạy vô điều kiện, mà `run_hermes` mặc định không truyền `--headless` → không tra số → lọc xoá sạch. Đã gỡ `and args.headless`. Tra số **không liên quan** tới việc ẩn cửa sổ Chrome |
+| 8 | `run_hermes.py` đọc Excel ra toàn `N/A` | Tên cột phải khớp `exporter.COLUMNS`: `Tên KH` / `Facebook` / `Ngày tìm` (không phải `Tên nick FB` / `Link FB cá nhân` / `Thời gian đăng`). Và **phải** `pd.read_excel(..., dtype=str)` — pandas ép cột SĐT thành float, `"0776791717"` → `776791717.0` |
 
 ## Debug checklist
 
@@ -172,8 +175,18 @@ Khi Excel thiếu dữ liệu, check theo thứ tự:
 4. **Cột trống?** → key name khớp COLUMNS?
 5. **Sai số lượng lead?** → filter SĐT empty, merge_rows dedup
 
-## File debug
+## Test & debug
 
-- `debug_dom.py` — dump HTML + UID để inspect cấu trúc Facebook
-- `debug_article.py` — debug nested article structure
-- `test_regex.py` — test regex pattern
+| File | Vai trò |
+|------|---------|
+| `test_exporter.py` | **Test regression 8 nhóm** — chạy sau mỗi lần sửa `app.py` / `exporter.py` / `run_hermes.py`. Không cần Selenium, không cần mạng, không cần token thật |
+| `test_drive.py` | Kiểm tra kết nối Google Drive |
+
+```bash
+python test_exporter.py     # exit 0 = pass, exit 1 = có test fail
+```
+
+Mỗi nhóm test gắn với một pitfall ở bảng trên: 1→#1, 2→#2, 4→#6, 5→#3, 6→#3, 7→#4, 8→#8.
+
+> Các file `debug_dom.py`, `debug_article.py`, `test_regex.py` từng được nhắc ở
+> đây **không còn tồn tại** trong repo — đã gỡ khỏi tài liệu.
