@@ -36,6 +36,24 @@ URL post → scrape_one_post() → robust_parse_comment() → accumulate all_dat
 - **`FB_NUMBER_TOKEN` trong `config.py`** — là token API thật, hardcode để tiện chạy CLI, nhưng cẩn thận khi share repo
 - **Đã có trong `.gitignore`**: `.env`, `*.xlsx`, `FB_Profile*/`
 
+## Quy trình — làm thẳng trên `main`, KHÔNG mở PR
+
+**Không tạo Pull Request.** Sửa xong → chạy test → commit → push thẳng lên `main`.
+
+```bash
+git checkout main
+# ... sua file ...
+python test_exporter.py            # BAT BUOC, phai pass
+bash .claude/hooks/auto-push.sh    # commit + push len main
+```
+
+`main` **không còn được bảo vệ** trong `auto-push.sh` — đây là quy ước đã chốt,
+không phải nhầm lẫn. Muốn bật lại lớp bảo vệ thì đặt `CLAUDE_AUTOPUSH_PROTECT_MAIN=1`.
+
+> Không có CI trên repo. `test_exporter.py` là cổng kiểm tra **duy nhất**, và
+> nó chỉ chạy khi được gọi thủ công. Push code chưa chạy test là đẩy thẳng lỗi
+> lên `main`, không có gì chặn lại.
+
 ## Auto-push — BẮT BUỘC
 
 Sau **mỗi lần sửa file**, chạy ngay:
@@ -49,11 +67,10 @@ bash .claude/hooks/auto-push.sh
 - Script tự retry 3 lần, tự `pull --rebase` khi bị rejected
 - Thoát im lặng khi tree sạch → gọi thừa vô hại, cứ gọi thoải mái
 
-### Script báo lỗi — 3 tình huống
+### Script báo lỗi — 2 tình huống
 
 | Lỗi | Xử lý |
 |-----|-------|
-| `main branch is protected` | **KHÔNG** tự set `CLAUDE_AUTOPUSH_ALLOW_PROTECTED=1`. Hỏi user trước. |
 | `Remote conflict: git pull --rebase failed` | **KHÔNG** dùng `--force`. Conflict thật thì cần merge thủ công. |
 | `Permission denied` | Kiểm tra quyền truy cập remote. Báo user. |
 

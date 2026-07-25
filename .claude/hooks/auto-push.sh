@@ -12,7 +12,7 @@ if ! git rev-parse --git-dir >/dev/null 2>&1; then
 fi
 
 # Đọc cấu hình từ env (nếu có)
-AUTOPUSH_ALLOW_PROTECTED="${CLAUDE_AUTOPUSH_ALLOW_PROTECTED:-0}"
+# (CLAUDE_AUTOPUSH_ALLOW_PROTECTED da bo — xem khoi bao ve main ben duoi)
 
 # Không có gì để push → im lặng thoát (gọi thừa vô hại)
 if ! git diff --cached --quiet 2>/dev/null || ! git diff --quiet 2>/dev/null; then
@@ -34,10 +34,11 @@ if git diff --cached --quiet 2>/dev/null; then
     # Chua co upstream -> van chay tiep de push -u tao nhanh tren remote
 fi
 
-# Kiểm tra protected branch (main)
+# main KHONG con bi chan: quy uong moi la lam thang tren main, khong PR.
+# Muon bat lai lop bao ve cu thi dat CLAUDE_AUTOPUSH_PROTECT_MAIN=1.
 CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-if [ "$CURRENT_BRANCH" = "main" ] && [ "$AUTOPUSH_ALLOW_PROTECTED" != "1" ]; then
-    echo "[auto-push] ERROR: main branch is protected. Set CLAUDE_AUTOPUSH_ALLOW_PROTECTED=1 to override (ask user first)." >&2
+if [ "$CURRENT_BRANCH" = "main" ] && [ "${CLAUDE_AUTOPUSH_PROTECT_MAIN:-0}" = "1" ]; then
+    echo "[auto-push] ERROR: main dang duoc bao ve (CLAUDE_AUTOPUSH_PROTECT_MAIN=1)." >&2
     exit 1
 fi
 
