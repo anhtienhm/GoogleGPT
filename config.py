@@ -116,6 +116,13 @@ DEBUG_DIR: Path = PROJECT_DIR / "debug"
 # 3. Chrome / Selenium
 # ----------------------------------------------------------------------------
 EXTENSION_DIR: Path = PROJECT_DIR / "Ten_Thu_Muc_Extension"
+
+# FBnumber API (tra cứu SĐT từ UID Facebook)
+FB_NUMBER_TOKEN = os.environ.get(
+    "FB_NUMBER_TOKEN",
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1SWQiOiI2NjlmMWU0ZTg2MmQxYzQwYWUwN2RiMDYiLCJzSWQiOiJvTjZLQU1IQ2p4dzZuaFBMVzhjZTIiLCJpYXQiOjE3ODQ5NTkyMTIsImV4cCI6MTc4NTgyMzIxMn0._aoeP1zcuV6EKbzpx3xQSeoWGBAOoB3G9RsdHkrFiEY",
+)
+FB_API_URL = os.environ.get("FB_API_URL", "https://api.fbnumber.com/v1")
 CHROME_PROFILE_DIR: Path = PROJECT_DIR / "FB_Profile"
 
 _CHROME_BINARIES = {

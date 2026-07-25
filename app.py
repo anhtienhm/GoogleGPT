@@ -1,7 +1,6 @@
 from bs4 import BeautifulSoup
 import time
 import re
-import pandas as pd
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
@@ -13,46 +12,48 @@ from selenium.webdriver.common.action_chains import ActionChains
 import sys
 import os
 import random
+from datetime import datetime
 
 import argparse
-import config  # <-- cau hinh path da nen tang
+import config  # cau hinh path da nen tang
 
 SCRIPT_DIR = str(config.PROJECT_DIR)
 DEBUG_DIR = str(config.DEBUG_DIR)
 config.ensure_dirs()
 
-COLUMNS = ["Link bài viết", "Tên nick FB", "Comment", "Thời gian đăng", "Link FB cá nhân"]
+from exporter import COLUMNS, save_excel, merge_phone_lookup
 
-# 1. TỪ KHÓA NGUYỆN VỌNG MUA HÀNG (Chỉ lấy & quét các comment chứa từ khóa này)
+# 1. TU KHOA NGUYEN VONG MUA HANG
 LEAD_KEYWORDS = [
-    'ib', 'inbox', 
-    'tư vấn', 'tu van', 
-    'bao nhiêu', 'bao nhieu', 'bn',
-    'giá', 'gia', 'báo giá', 'bao gia', 'xin giá', 'xin gia', 'giá sao', 'gia sao',
-    'sđt', 'sdt', 'zalo', 'đặt hàng', 'dat hang', 'mua'
+    'ib', 'inbox',
+    'tu van', 'tư vấn',
+    'bao nhieu', 'bao nhiêu', 'bn',
+    'gia', 'giá', 'bao gia', 'báo giá', 'xin gia', 'xin giá', 'gia sao', 'giá sao',
+    'sdt', 'sđt', 'zalo', 'dat hang', 'đặt hàng', 'mua'
 ]
 
-# 2. TỪ KHÓA BÁN HÀNG / SPAM / CHỦ PAGE (Lọc bỏ các comment này)
+# 2. TU KHOA BAN HANG / SPAM / CHU PAGE
 SELLER_KEYWORDS = [
-    'xưởng e', 'xưởng mình', 'bên e', 'bên mình', 'chuyên thi công', 
-    'hotline', 'địa chỉ', 'liên hệ zalo', 'lh zalo', 'liên hệ hotline',
-    'sản xuất', 'cung cấp', 'showroom', 'công ty', 'uy tín', 'inbox shop'
+    'xuong e', 'xưởng e', 'xuong minh', 'xưởng mình', 'ben e', 'bên e', 'ben minh', 'bên mình',
+    'chuyen thi cong', 'chuyên thi công',
+    'hotline', 'dia chi', 'địa chỉ', 'lien he zalo', 'liên hệ zalo', 'lh zalo', 'lien he hotline', 'liên hệ hotline',
+    'san xuat', 'sản xuất', 'cung cap', 'cung cấp', 'showroom', 'cong ty', 'công ty', 'uy tin', 'uy tín', 'inbox shop'
 ]
 
 ACTION_TEXTS = {
-    'thích', 'like', 'phản hồi', 'reply', 'trả lời', 'chia sẻ', 'share',
-    'tác giả', 'author', 'top fan', 'xem thêm', 'see more', 'ẩn', 'hide',
-    'báo cáo', 'report', 'đã chỉnh sửa', 'edited', 'xem bản dịch',
-    'see translation', 'viết phản hồi', 'write a reply', 'phù hợp nhất',
-    'mới nhất', 'most relevant', 'newest', 'gửi', 'send',
-    'người đóng góp hàng đầu', 'bình luận', 'comment', 'xem thêm bình luận'
+    'thich', 'like', 'phan hoi', 'phản hồi', 'reply', 'tra loi', 'trả lời', 'chia se', 'chia sẻ', 'share',
+    'tac gia', 'tác giả', 'author', 'top fan', 'xem them', 'xem thêm', 'see more', 'an', 'ẩn', 'hide',
+    'bao cao', 'báo cáo', 'report', 'da chinh sua', 'đã chỉnh sửa', 'edited', 'xem ban dich', 'xem bản dịch',
+    'see translation', 'viet phan hoi', 'viết phản hồi', 'write a reply', 'phu hop nhat', 'phù hợp nhất',
+    'moi nhat', 'mới nhất', 'most relevant', 'newest', 'gui', 'gửi', 'send',
+    'nguoi dong gop hang dau', 'người đóng góp hàng đầu', 'binh luan', 'bình luận', 'comment', 'xem them binh luan', 'xem thêm bình luận'
 }
 
 TIME_PATTERN = re.compile(
-    r'^\s*(\d+\s*(giây|phút|giờ|ngày|tuần|năm|[smhdwy])\s*$'
-    r'|\d+\s*(Tháng|thg)\s*\d+'
+    r'^\s*(\d+\s*(giay|phut|gio|ngay|tuan|nam|[smhdwy])\s*$'
+    r'|\d+\s*(Thang|thg)\s*\d+'
     r'|(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s*\d+'
-    r'|Vừa xong|Just now)',
+    r'|Vua xong|Just now)',
     re.IGNORECASE
 )
 
@@ -64,7 +65,7 @@ NON_PROFILE_PATHS = (
 
 
 # ============================================================
-# XỬ LÝ LINK CÁ NHÂN
+# XU LY LINK CA NHAN
 # ============================================================
 def clean_facebook_url(url):
     if not url or url == "N/A":
@@ -107,6 +108,35 @@ def is_junk(text):
     return False
 
 
+def extract_phone(text):
+    """Trich so dien thoai VN tu text"""
+    cleaned = re.sub(r'(sdt|sd t|sđt|sd t|lh|call|phone|dt|zalo|so|hotline|tel)[\s:.]*', '', text.lower())
+    cleaned = re.sub(r'[\s.\-()/+]', '', cleaned)
+    cleaned = re.sub(r'^[^\d]+', '', cleaned)
+    for p in [r'(?:84)?(?:3[2-9]|5[2689]|7[0-9]|8[1-9]|9[0-9])\d{7}', r'0\d{9}', r'\d{10,11}']:
+        m = re.search(p, cleaned)
+        if m:
+            n = m.group(0)
+            return '0' + n[2:] if n.startswith('84') and len(n) == 11 else n
+    return ''
+
+
+def extract_uid_from_url(url):
+    """Trich UID tu Facebook profile URL."""
+    if not url or url == "N/A":
+        return None
+    m = re.search(r'profile\.php\?id=(\d+)', url)
+    if m:
+        return m.group(1)
+    m = re.search(r'/user/(\d+)', url)
+    if m:
+        return m.group(1)
+    m = re.search(r'facebook\.com/(\d{10,})(?:/|$)', url)
+    if m:
+        return m.group(1)
+    return None
+
+
 def extract_time_strict(article):
     for sp in article.find_all(['span', 'a']):
         t = sp.get_text(strip=True)
@@ -116,32 +146,34 @@ def extract_time_strict(article):
 
 
 # ============================================================
-# BÓC TÁCH & LỌC COMMENT CHUYỂN ĐỔI (LOẠI BỎ CHỦ PAGE & NGUỜI BÁN)
+# BOC TACH & LOC COMMENT CHUYEN DOI
 # ============================================================
 def robust_parse_comment(article, target_url):
-    # 1. Kiểm tra nhãn Tác giả / Author
+    # 1. Kiem tra nhan Tac gia / Author
     article_text_lower = article.get_text().lower()
-    if 'tác giả' in article_text_lower or 'author' in article_text_lower:
+    if 'tac gia' in article_text_lower or 'tác giả' in article_text_lower or 'author' in article_text_lower:
         return None
 
-    # 2. Loại bỏ các comment reply con lồng bên trong
+    author_name = "Nguoi dung Facebook"
+    author_link = "N/A"
+
+    # 2. Luu SNAPSHOT link TRUOC khi xoa nested articles
+    links_before = article.find_all('a', href=True)
+
+    # 3. Xoa reply con long ben trong
     for nested in article.find_all('div', attrs={'role': 'article'}):
         nested.extract()
 
-    author_name = "Người dùng Facebook"
-    author_link = "N/A"
-    
-    # 3. Lấy thông tin Tên nick & Link FB
-    links = article.find_all('a', href=True)
-    for a in links:
+    # 4. Lay thong tin Ten nick & Link FB tu snapshot da luu
+    for a in links_before:
         href = a['href']
         text = a.get_text(strip=True)
-        
-        if any(x in href for x in ['/login', 'checkpoint', 'hashtag', 'music']): 
+
+        if any(x in href for x in ['/login', 'checkpoint', 'hashtag', 'music']):
             continue
-        
+
         path = href.split('?')[0]
-        if any(x in path for x in NON_PROFILE_PATHS): 
+        if any(x in path for x in NON_PROFILE_PATHS):
             continue
 
         link = clean_facebook_url(href)
@@ -151,10 +183,10 @@ def robust_parse_comment(article, target_url):
                 author_link = link
                 break
 
-    # 4. Trích xuất thời gian đăng
+    # 4. Trich xuat thoi gian dang
     comment_time = extract_time_strict(article)
 
-    # 5. Trích xuất nội dung bình luận
+    # 5. Trich xuat noi dung binh luan
     content_parts = []
     for span in article.find_all(['div', 'span'], dir='auto'):
         text = " ".join(span.get_text(' ', strip=True).split())
@@ -166,45 +198,59 @@ def robust_parse_comment(article, target_url):
     final = [b for b in content_parts if not any(b != o and b in o for o in content_parts)]
     comment_text = " ".join(" ".join(final).split())
 
-    # Cắt bỏ tên tác giả nếu bị dính ở đầu nội dung
-    if author_name != "Người dùng Facebook" and comment_text.startswith(author_name):
+    # Cat bo ten tac gia neu bi dinh o dau noi dung
+    if author_name != "Nguoi dung Facebook" and comment_text.startswith(author_name):
         comment_text = comment_text[len(author_name):].strip()
 
     comment_lower = comment_text.lower()
 
-    # 6. LỌC CHẶT CHẼ:
-    # - Bỏ qua comment rác/ảnh/sticker
-    if not comment_text or comment_text == "[Ảnh/Sticker]" or len(comment_text) < 2:
+    # 6. LOC CHAT CHE
+    if not comment_text or comment_text == "[Anh/Sticker]" or len(comment_text) < 2:
         return None
 
-    # - Bỏ qua comment của người bán / seeding chào hàng khác
     if any(skw in comment_lower for skw in SELLER_KEYWORDS):
         return None
 
-    # - Chỉ giữ lại comment có TỪ KHÓA MUA HÀNG / CHUYỂN ĐỔI
     is_lead = any(lkw in comment_lower for lkw in LEAD_KEYWORDS)
     if not is_lead:
         return None
 
-    # Dự phòng Regex lấy link
+    # Du phong Regex lay link
     if author_link == "N/A":
         all_text = str(article)
         fb_link_match = re.search(r'href="(/profile\.php\?id=\d+|/[A-Za-z0-9.\-_]+)"', all_text)
         if fb_link_match:
             author_link = clean_facebook_url(fb_link_match.group(1))
 
+    # Trich SDT tu comment
+    phone_num = extract_phone(comment_text)
+    uid = extract_uid_from_url(author_link) or ""
+
+    now_str = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
     return {
-        "Link bài viết": target_url,
-        "Tên nick FB": author_name,
+        "Ngày tìm": now_str,
+        "Tên KH": author_name,
+        "SĐT": phone_num,
         "Comment": comment_text,
-        "Thời gian đăng": comment_time,
-        "Link FB cá nhân": author_link
+        "Link bài viết": target_url,
+        "Facebook": author_link,
+        "_uid": uid,
+        "_profile_url": author_link,
     }
 
 
 # ============================================================
-# MÔ PHỎNG HÀNH VI & CUỘN TRANG AN TOÀN
+# MO PHONG HANH VI & CUỘN TRANG AN TOAN
 # ============================================================
+HEADLESS_MODE = False
+
+def headless_sleep(min_s, max_s=None):
+    if HEADLESS_MODE:
+        time.sleep(1.0)
+    else:
+        time.sleep(random.uniform(min_s, max_s or min_s + 2))
+
+
 def apply_stealth(driver):
     try:
         driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
@@ -219,12 +265,13 @@ def apply_stealth(driver):
 
 
 def human_like_mouse_move(driver):
+    if HEADLESS_MODE:
+        return
     try:
         width = driver.execute_script("return window.innerWidth;") or 1280
         height = driver.execute_script("return window.innerHeight;") or 900
         target_x = random.randint(100, int(width * 0.8))
         target_y = random.randint(100, int(height * 0.8))
-        
         actions = ActionChains(driver)
         actions.move_by_offset(target_x, target_y).perform()
         time.sleep(random.uniform(0.8, 1.5))
@@ -265,7 +312,7 @@ def smart_scroll(driver):
     try:
         current_top = driver.execute_script(scroll_js)
         if current_top is None: return 0, True
-        time.sleep(random.uniform(5.0, 8.0)) # Giãn cách an toàn giữa các lần cuộn
+        headless_sleep(5.0, 8.0)
         return current_top, False
     except Exception:
         return 0, True
@@ -282,43 +329,32 @@ def click_outside_popups(driver):
         }
         """
         driver.execute_script(js)
-        time.sleep(2)
+        headless_sleep(2.0, 2.0)
     except Exception:
         pass
 
 
-# ============================================================
-# NHẬN BIẾT & CLICK NÚT EXTENSION TRÊN COMMENT CHUYỂN ĐỔI
-# ============================================================
 def click_phone_icons_for_leads(driver):
-    """Chỉ kích hoạt nút Extension cho comment thỏa mãn tiêu chuẩn khách mua"""
+    """Chi kich hoat nut Extension cho comment thoa man tieu chuan khach mua"""
     try:
         has_dialog = bool(driver.find_elements(By.CSS_SELECTOR, "div[role='dialog']"))
         selector = "div[role='dialog'] div[role='article']" if has_dialog else "div[role='article']"
         articles = driver.find_elements(By.CSS_SELECTOR, selector)
-        
         clicked_count = 0
         for article in articles:
             try:
                 text_lower = article.text.lower()
-                
-                # Bỏ qua nếu là Tác giả/Chủ trang hoặc chứa từ khóa người bán
-                if 'tác giả' in text_lower or 'author' in text_lower:
+                if 'tac gia' in text_lower or 'tác giả' in text_lower or 'author' in text_lower:
                     continue
                 if any(skw in text_lower for skw in SELLER_KEYWORDS):
                     continue
-
-                # Bắt buộc phải chứa từ khóa nhu cầu mua
                 is_lead = any(lkw in text_lower for lkw in LEAD_KEYWORDS)
                 if not is_lead:
                     continue
-
-                # Tìm nút quét của Extension
                 btn_elements = article.find_elements(By.XPATH, (
                     ".//a[@href]/following-sibling::*[img or svg or @role='button' or contains(@class, 'phone')]"
                     "| .//*[contains(@class, 'scan') or contains(@class, 'phone') or contains(@class, 'ext')]"
                 ))
-
                 for elem in btn_elements:
                     if elem.is_displayed():
                         is_clicked = driver.execute_script("return arguments[0].getAttribute('data-scanned');", elem)
@@ -326,104 +362,105 @@ def click_phone_icons_for_leads(driver):
                             driver.execute_script("arguments[0].click();", elem)
                             driver.execute_script("arguments[0].setAttribute('data-scanned', 'true');", elem)
                             clicked_count += 1
-                            time.sleep(random.uniform(1.0, 2.0))
+                            headless_sleep(1.0, 2.0)
             except Exception:
                 continue
-
         if clicked_count > 0:
-            print(f"   -> [AI/Filter] Đã kích hoạt {clicked_count} nút quét cho comment chuyển đổi.")
+            print(f"   -> [AI/Filter] Da kich hoat {clicked_count} nut quet cho comment chuyen doi.")
     except Exception:
         pass
 
 
 def open_reel_comments(driver):
-    print("-> Phát hiện REEL: đang tìm nút mở bảng bình luận...")
+    print("-> Phat hien REEL: dang tim nut mo bang binh luan...")
     selectors = [
-        "//div[@role='button'][@aria-label='Bình luận' or @aria-label='Comment']",
-        "//div[@role='button'][contains(@aria-label, 'ình luận') or contains(@aria-label, 'omment')]",
-        "//span[@role='button'][contains(@aria-label, 'ình luận') or contains(@aria-label, 'omment')]",
-        "//div[@aria-label='Xem bình luận' or @aria-label='View comments']",
+        "//div[@role='button'][@aria-label='Binh luan' or @aria-label='Comment']",
+        "//div[@role='button'][contains(@aria-label, 'inh luan') or contains(@aria-label, 'omment')]",
+        "//span[@role='button'][contains(@aria-label, 'inh luan') or contains(@aria-label, 'omment')]",
+        "//div[@aria-label='Xem binh luan' or @aria-label='View comments']",
     ]
-
     for sel in selectors:
         try:
             btn = WebDriverWait(driver, 5).until(
                 EC.presence_of_element_located((By.XPATH, sel))
             )
             driver.execute_script("arguments[0].click();", btn)
-            print("-> Đã click mở bảng bình luận Reel.")
-            time.sleep(6)
+            print("-> Da click mo bang binh luan Reel.")
+            headless_sleep(6.0, 6.0)
             return True
         except Exception:
             continue
-
     if driver.find_elements(By.CSS_SELECTOR, "div[role='article']"):
-        print("-> Bảng bình luận Reel có vẻ đã mở sẵn.")
+        print("-> Bang binh luan Reel co ve da mo san.")
         return True
-
-    print("-> [CẢNH BÁO] Không tìm thấy nút mở bình luận của Reel.")
+    print("-> [CANH BAO] Khong tim thay nut mo binh luan cua Reel.")
     return False
 
 
 def select_newest_filter(driver):
     try:
-        print("-> Đang tìm bộ lọc bình luận...")
-        human_like_mouse_move(driver)
+        print("-> Dang tim bo loc binh luan...")
+        if not HEADLESS_MODE:
+            human_like_mouse_move(driver)
         filter_xpath = (
-            "//*[contains(text(), 'Phù hợp nhất') or contains(text(), 'Most relevant') "
-            "or contains(text(), 'Bình luận hàng đầu') or contains(text(), 'Top comments') "
-            "or contains(text(), 'Tất cả bình luận') or contains(text(), 'All comments')]"
+            "//*[contains(text(), 'Phu hop nhat') or contains(text(), 'Phù hợp nhất') or contains(text(), 'Most relevant') "
+            "or contains(text(), 'Binh luan hang dau') or contains(text(), 'Bình luận hàng đầu') or contains(text(), 'Top comments') "
+            "or contains(text(), 'Tat ca binh luan') or contains(text(), 'Tất cả bình luận') or contains(text(), 'All comments')]"
         )
-        
         filter_elem = WebDriverWait(driver, 8).until(
             EC.presence_of_element_located((By.XPATH, filter_xpath))
         )
         driver.execute_script("arguments[0].click();", filter_elem)
-        time.sleep(random.uniform(3.0, 5.0))
+        headless_sleep(3.0, 5.0)
 
-        newest_xpath = "//div[@role='menuitem']//span[contains(text(), 'Mới nhất') or contains(text(), 'Newest')]"
+        newest_xpath = "//div[@role='menuitem']//span[contains(text(), 'Moi nhat') or contains(text(), 'Mới nhất') or contains(text(), 'Newest')]"
         newest_option = WebDriverWait(driver, 6).until(
             EC.presence_of_element_located((By.XPATH, newest_xpath))
         )
         driver.execute_script("arguments[0].click();", newest_option)
-        print("-> Đã chuyển sang 'Newest'!")
-        time.sleep(random.uniform(4.0, 6.0))
+        print("-> Da chuyen sang 'Newest'!")
+        headless_sleep(4.0, 6.0)
 
         try:
             scan_button = WebDriverWait(driver, 4).until(
                 EC.presence_of_element_located((By.XPATH, "//*[contains(text(), 'Scan all Comments')]"))
             )
             driver.execute_script("arguments[0].click();", scan_button)
-            print("-> ĐÃ CLICK THÀNH CÔNG NÚT 'Scan all Comments'!")
+            print("-> DA CLICK THANH CONG NUT 'Scan all Comments'!")
             time.sleep(3)
         except Exception:
             pass
 
     except Exception as e:
-        print(f"-> Không thể chọn bộ lọc (Có thể đã ở chế độ Mới nhất). Chi tiết: {e}")
+        print(f"-> Khong the chon bo loc (Co the da o che do Moi nhat). Chi tiet: {e}")
 
 
 # ============================================================
-# KHỞI TẠO TRÌNH DUYỆT
+# KHOI TAO TRINH DUYET
 # ============================================================
-def create_driver():
+def create_driver(headless=False):
     chrome_options = Options()
     chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.add_argument("--window-size=1280,900")
     chrome_options.add_argument("--disable-notifications")
-    chrome_options.add_argument(f"--remote-debugging-port={config.free_port()}")
     chrome_options.add_argument("--disable-background-networking")
     chrome_options.add_argument("--disable-software-rasterizer")
-    
-    path_to_extension = config.EXTENSION_DIR
-    if path_to_extension.is_dir():
-        chrome_options.add_argument(f"--load-extension={path_to_extension}")
-
     chrome_options.add_argument("--disable-blink-features=AutomationControlled")
     chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
     chrome_options.add_experimental_option("useAutomationExtension", False)
+
+    if headless:
+        print("Dang khoi dong Chrome AN (headless)...")
+        chrome_options.add_argument("--headless=new")
+    else:
+        print("Dang khoi dong trinh duyet Chrome...")
+        chrome_options.add_argument(f"--remote-debugging-port={config.free_port()}")
+
+    path_to_extension = config.EXTENSION_DIR
+    if path_to_extension.is_dir():
+        chrome_options.add_argument(f"--load-extension={path_to_extension}")
 
     profile_path = config.CHROME_PROFILE_DIR
     profile_path.mkdir(parents=True, exist_ok=True)
@@ -433,14 +470,13 @@ def create_driver():
     if chrome_binary:
         chrome_options.binary_location = chrome_binary
 
-    print("Đang khởi động trình duyệt Chrome...")
-
     try:
         driver = webdriver.Chrome(options=chrome_options)
     except Exception:
         driver = webdriver.Chrome(service=Service(), options=chrome_options)
 
-    apply_stealth(driver)
+    if not headless:
+        apply_stealth(driver)
     driver.set_page_load_timeout(60)
     return driver
 
@@ -456,7 +492,7 @@ def is_driver_alive(driver):
 def is_logged_in(driver):
     try:
         driver.get("https://www.facebook.com/")
-        time.sleep(5)
+        headless_sleep(5.0, 5.0)
         if "login" in driver.current_url or "checkpoint" in driver.current_url:
             return False
         if bool(driver.find_elements(By.ID, "email")) and bool(driver.find_elements(By.ID, "pass")):
@@ -466,15 +502,28 @@ def is_logged_in(driver):
         return False
 
 
-def ensure_logged_in(driver):
+def ensure_logged_in(driver, headless=False):
     if is_logged_in(driver):
-        print("-> Đã đăng nhập Facebook từ profile đã lưu.")
+        print("-> Da dang nhap Facebook tu profile da luu.")
         return True
 
+    if headless:
+        print("[CANH BAO] Chay headless nhung chua dang nhap. Thu dang nhap bang profile cu...")
+        try:
+            driver.get("https://www.facebook.com/")
+            headless_sleep(5.0, 5.0)
+        except Exception:
+            pass
+        if is_logged_in(driver):
+            print("-> Da dang nhap sau khi load profile cu.")
+            return True
+        print("[LOI] Profile chua co session Facebook. Hay chay co GUI (khong --headless) de dang nhap 1 lan, sau do moi chay headless duoc.")
+        return False
+
     print("\n" + "=" * 60)
-    print("  CHƯA ĐĂNG NHẬP FACEBOOK.")
-    print("  Cửa sổ Chrome vừa mở -> hãy tự đăng nhập tài khoản.")
-    print("  Đăng nhập xong -> quay lại đây và nhấn ENTER để tiếp tục.")
+    print("  CHUA DANG NHAP FACEBOOK.")
+    print("  Cua so Chrome vua mo -> hay tu dang nhap tai khoan.")
+    print("  Dang nhap xong -> quay lai day va nhan ENTER de tiep tuc.")
     print("=" * 60)
 
     try:
@@ -482,38 +531,160 @@ def ensure_logged_in(driver):
     except Exception:
         pass
 
-    input(">>> Nhấn ENTER sau khi đã đăng nhập Facebook xong... ")
+    input(">>> Nhan ENTER sau khi da dang nhap Facebook xong... ")
     return is_logged_in(driver)
 
 
-def save_excel(all_data, output_filename):
-    try:
-        df = pd.DataFrame(all_data)[COLUMNS]
-        tmp = output_filename.replace('.xlsx', '_tmp.xlsx')
-        df.to_excel(tmp, index=False, engine='openpyxl')
-        os.replace(tmp, output_filename)
-        print(f"[TIẾN ĐỘ] Đã lưu {len(all_data)} bình luận chuẩn hóa vào Excel.")
-        return True
-    except PermissionError:
-        print("[CẢNH BÁO] Vui lòng đóng file Excel đang mở để lưu.")
-    except Exception as e:
-        print(f"[CẢNH BÁO] Lỗi ghi Excel: {str(e)}")
-    return False
+# ============================================================
+# FBNUMBER TRA SO DIEN THOAI (GraphQL interceptor)
+# ============================================================
+import requests as _requests
+
+FBNUMBER_HEADERS = {
+    "Authorization": f"Bearer {config.FB_NUMBER_TOKEN}",
+    "Content-Type": "application/json",
+}
+
+
+def inject_graphql_interceptor(driver):
+    driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {"source": """
+        window.__fb_uids__ = new Set();
+        window.__fb_uid_map__ = {};
+        const _oo = XMLHttpRequest.prototype.open;
+        const _os = XMLHttpRequest.prototype.send;
+        XMLHttpRequest.prototype.open = function(m, u) { this._url = u; return _oo.apply(this, arguments); };
+        XMLHttpRequest.prototype.send = function(b) {
+            this.addEventListener('load', function() {
+                try {
+                    const text = this.responseText;
+                    if (!this._url || !text) return;
+                    if (!this._url.includes('graphql') && !this._url.includes('fbapi')) return;
+                    const data = JSON.parse(text);
+                    const extractNames = (obj) => {
+                        if (!obj || typeof obj !== 'object') return;
+                        if (Array.isArray(obj)) { obj.forEach(extractNames); return; }
+                        if (obj.__typename === 'User' && obj.id && obj.name && String(obj.id).length >= 10) {
+                            window.__fb_uids__.add(String(obj.id));
+                            window.__fb_uid_map__[String(obj.id)] = obj.name;
+                        }
+                        if (obj.author && obj.author.id && obj.author.name && String(obj.author.id).length >= 10) {
+                            window.__fb_uids__.add(String(obj.author.id));
+                            window.__fb_uid_map__[String(obj.author.id)] = obj.author.name;
+                        }
+                        for (const key of Object.keys(obj)) {
+                            if (key === '__proto__' || key === 'constructor') continue;
+                            extractNames(obj[key]);
+                        }
+                    };
+                    extractNames(data);
+                } catch(e) {}
+            });
+            return _os.apply(this, arguments);
+        };
+        const _of = window.fetch;
+        if (_of) {
+            window.fetch = function() {
+                const url = arguments[0] || '';
+                return _of.apply(this, arguments).then(function(response) {
+                    if (typeof url === 'string' && (url.includes('graphql') || url.includes('fbapi'))) {
+                        const clone = response.clone();
+                        clone.text().then(function(text) {
+                            try {
+                                const data = JSON.parse(text);
+                                const extract = (obj) => {
+                                    if (!obj || typeof obj !== 'object') return;
+                                    if (Array.isArray(obj)) { obj.forEach(extract); return; }
+                                    if (obj.__typename === 'User' && obj.id && obj.name && String(obj.id).length >= 10) {
+                                        window.__fb_uids__.add(String(obj.id));
+                                        window.__fb_uid_map__[String(obj.id)] = obj.name;
+                                    }
+                                    if (obj.author && obj.author.id && obj.author.name && String(obj.author.id).length >= 10) {
+                                        window.__fb_uids__.add(String(obj.author.id));
+                                        window.__fb_uid_map__[String(obj.author.id)] = obj.author.name;
+                                    }
+                                    for (const k of Object.keys(obj)) {
+                                        if (k === '__proto__' || k === 'constructor') continue;
+                                        extract(obj[k]);
+                                    }
+                                };
+                                extract(data);
+                            } catch(e) {}
+                        }).catch(function(){});
+                    }
+                    return response;
+                });
+            };
+        }
+    """})
+
+
+def collect_uids(driver):
+    uids = driver.execute_script("return Array.from(window.__fb_uids__ || []);")
+    uid_map = driver.execute_script("return window.__fb_uid_map__ || {};")
+    return uids, uid_map
+
+
+def fbnumber_search_phones(uids):
+    if not uids:
+        return {}
+    results = {}
+    for idx, uid in enumerate(uids):
+        try:
+            r = _requests.post(
+                f"{config.FB_API_URL}/phone/search",
+                headers=FBNUMBER_HEADERS,
+                json={"uid": uid},
+                timeout=10,
+            )
+            if r.status_code == 201:
+                data = r.json()
+                if data.get("status") == "success":
+                    d = data["data"]
+                    results[uid] = {
+                        "number": d.get("number", ""),
+                        "number2": d.get("number2", ""),
+                        "numberProvider": d.get("numberProvider", ""),
+                        "number2Provider": d.get("number2Provider", ""),
+                        "location": d.get("location", ""),
+                        "gender": d.get("gender", ""),
+                        "birthday": d.get("birthday", ""),
+                    }
+            elif r.status_code == 429:
+                print(f"   [RATE LIMIT] Dung sau {idx} UIDs.")
+                break
+            elif r.status_code == 401:
+                print(f"   [TOKEN HET HAN] Tra ve {idx} ket qua.")
+                break
+        except Exception as e:
+            print(f"   [LOI] UID {uid}: {e}")
+        if idx % 5 == 4:
+            time.sleep(0.5)
+        if idx % 20 == 0 and idx > 0:
+            print(f"   Da xu ly {idx}/{len(uids)} UIDs, tim thay {len(results)} SDT.")
+    return results
 
 
 # ============================================================
-# XỬ LÝ 1 BÀI VIẾT (CUỘN ĐẾN KHI ĐỦ 5 BÌNH LUẬN CHUYỂN ĐỔI)
+# XU LY 1 BAI VIET (CUỘN DEN KHI DU 5 BINH LUAN CHUYEN DOI)
 # ============================================================
 def scrape_one_post(driver, target_url):
+    # Chuan hoa URL: multi_permalinks -> permalink
+    m = re.search(r'multi_permalinks=(\d+)', target_url)
+    if m:
+        group_match = re.search(r'groups/(\d+)', target_url)
+        if group_match:
+            target_url = f'https://www.facebook.com/groups/{group_match.group(1)}/permalink/{m.group(1)}/'
+            print(f'-> Chuan hoa URL: {target_url}')
+
     target_url = target_url.replace("m.facebook.com", "www.facebook.com").replace("web.facebook.com", "www.facebook.com")
     comments_data = []
     seen_keys = set()
 
     try:
-        print(f"Đang truy cập bài viết: {target_url}")
+        print(f"Dang truy cap bai viet: {target_url}")
         driver.get(target_url)
-        print(">>> Đang đợi trang tải ổn định...")
-        time.sleep(random.uniform(8.0, 12.0))
+        print(">>> Dang doi trang tai on dinh...")
+        headless_sleep(8.0, 12.0)
 
         if is_reel(target_url) or '/reel/' in driver.current_url:
             open_reel_comments(driver)
@@ -521,46 +692,48 @@ def scrape_one_post(driver, target_url):
         select_newest_filter(driver)
 
         stuck, loop_count = 0, 0
-        
+
         while loop_count < 10:
             loop_count += 1
             if not is_driver_alive(driver): break
 
             human_like_mouse_move(driver)
 
-            # Click nút Xem thêm bình luận nếu xuất hiện
+            # Click nut Xem them binh luan
             try:
-                btn = driver.find_element(By.XPATH, "//span[contains(text(), 'Xem thêm bình luận') or contains(text(), 'View more comments') or contains(text(), 'Xem thêm') or contains(text(), 'See more')]")
+                btn = driver.find_element(By.XPATH, "//span[contains(text(), 'Xem them binh luan') or contains(text(), 'Xem thêm bình luận') or contains(text(), 'View more comments') or contains(text(), 'Xem them') or contains(text(), 'Xem thêm') or contains(text(), 'See more')]")
                 driver.execute_script("arguments[0].click();", btn)
-                time.sleep(1.5)
+                headless_sleep(1.5, 1.5)
             except Exception:
                 pass
 
-            # Thực hiện cuộn trang
+            # Thuc hien cuon trang
             current_top, is_stuck = smart_scroll(driver)
 
-            # Thử kích hoạt nút Extension cho các comment thỏa mãn từ khóa
+            # Kich hoat nut Extension cho comment thoa man tu khoa
             click_phone_icons_for_leads(driver)
 
-            # Trích xuất thử HTML hiện tại để đếm số comment CHUYỂN ĐỔI CHUẨN đã thu được
+            # Trich xuat HTML
             soup = BeautifulSoup(driver.page_source, 'html.parser')
             has_dialog = bool(driver.find_elements(By.CSS_SELECTOR, "div[role='dialog']"))
-            
+
             if has_dialog:
                 comment_elements = soup.select("div[role='dialog'] div[role='article'], div[role='dialog'] div[data-testid='comment'], div[role='dialog'] blockquote")
+                if not comment_elements:
+                    comment_elements = soup.select("div[role='article'], div[data-testid='comment'], blockquote")
             else:
                 comment_elements = soup.select("div[role='article'], div[data-testid='comment'], blockquote")
 
             current_valid_count = 0
             temp_comments = []
-            
+
             for element in comment_elements:
                 row = robust_parse_comment(element, target_url)
-                if row is None: 
+                if row is None:
                     continue
 
-                key = (row["Tên nick FB"], row["Comment"])
-                if key in seen_keys: 
+                key = (row.get("Tên KH", ""), row["Comment"])
+                if key in seen_keys:
                     continue
 
                 temp_comments.append(row)
@@ -569,30 +742,28 @@ def scrape_one_post(driver, target_url):
             comments_data.extend(temp_comments)
             current_valid_count = len(comments_data)
 
-            print(f"Vòng lặp {loop_count}: Đã tích lũy {current_valid_count}/5 bình luận chuyển đổi chuẩn...")
+            print(f"Vong lap {loop_count}: Da tich luy {current_valid_count}/5 binh luan chuyen doi chuan...")
 
-            # DỪNG KHI ĐÃ THU ĐỦ 5 BÌNH LUẬN CHUYỂN ĐỔI
             if current_valid_count >= 5:
-                print(f"   [ĐẠT MỤC TIÊU] Đã thu thập đủ {current_valid_count} bình luận chuyển đổi.")
+                print(f"   [DAT MUC TIEU] Da thu thap du {current_valid_count} binh luan chuyen doi.")
                 comments_data = comments_data[:5]
                 break
 
-            # Kiểm tra nếu cuộn bị kẹt (hết bình luận trên bài)
             if is_stuck:
                 stuck += 1
                 if stuck >= 3:
                     click_outside_popups(driver)
                 if stuck >= 8:
-                    print(f"   [KẾT THÚC CỬA SỔ] Bài viết đã hết bình luận. Tổng thu được: {current_valid_count}")
+                    print(f"   [KET THUC CUA SO] Bai viet da het binh luan. Tong thu duoc: {current_valid_count}")
                     break
             else:
                 stuck = 0
 
-        got_link = sum(1 for c in comments_data if c["Link FB cá nhân"] != "N/A")
-        print(f"-> Kết quả bài này: {len(comments_data)} bình luận chuyển đổi | {got_link} có link cá nhân.")
+        got_link = sum(1 for c in comments_data if c.get("Facebook", "N/A") != "N/A")
+        print(f"-> Ket qua bai nay: {len(comments_data)} binh luan chuyen doi | {got_link} co link FB.")
 
     except Exception as e:
-        print(f"Lỗi khi xử lý link {target_url}: {str(e)}")
+        print(f"Loi khi xu ly link {target_url}: {str(e)}")
 
     return comments_data
 
@@ -601,16 +772,16 @@ def scrape_one_post(driver, target_url):
 # MAIN
 # ============================================================
 if __name__ == "__main__":
-    print("=== FACEBOOK COMMENT SCRAPER (LỌC KHÁCH MUA & BỎ QUA CHỦ PAGE/NGƯỜI BÁN) ===")
+    print("=== FACEBOOK COMMENT SCRAPER (LOC KHACH MUA & BO QUA CHU PAGE/NGUOI BAN) ===")
 
-    # --- CLI contract (dung chung cho run_hermes.py) ---------------------
-    #   python app.py                      -> doc toan bo links.txt
-    #   python app.py <url>                -> chi quet 1 link
-    #   python app.py <url> --out out.xlsx -> chi dinh file ket qua
     parser = argparse.ArgumentParser(description="Facebook comment scraper")
     parser.add_argument("url", nargs="?", default=None,
                         help="Quet 1 link duy nhat (bo trong = doc links.txt)")
     parser.add_argument("--out", default=None, help="Duong dan file .xlsx dau ra")
+    parser.add_argument("--headless", action="store_true",
+                        help="Chay Chrome an (khong mo cua so)")
+    parser.add_argument("--no-fbnumber", action="store_true",
+                        help="Khong tra cuu SDT qua FBnumber (mac dinh: co)")
     args = parser.parse_args()
 
     output_filename = args.out or str(config.SCRAPER_EXCEL)
@@ -623,18 +794,23 @@ if __name__ == "__main__":
             with open(input_file, 'r', encoding='utf-8') as f:
                 urls = [line.strip() for line in f if line.strip().startswith("http")]
         except FileNotFoundError:
-            print(f"LỖI: Không tìm thấy file '{input_file}'.")
+            print(f"LOI: Khong tim thay file '{input_file}'.")
             sys.exit(1)
 
         if not urls:
-            print(f"LỖI: File '{input_file}' trống.")
+            print(f"LOI: File '{input_file}' trong.")
             sys.exit(1)
 
     urls = list(dict.fromkeys(urls))
-    driver = create_driver()
+    globals()['HEADLESS_MODE'] = args.headless
+    driver = create_driver(headless=args.headless)
 
-    if not ensure_logged_in(driver):
-        print(">>> Dừng chương trình do chưa đăng nhập.")
+    if not args.no_fbnumber and args.headless:
+        inject_graphql_interceptor(driver)
+        print("-> Da inject GraphQL interceptor (FBnumber).")
+
+    if not ensure_logged_in(driver, headless=args.headless):
+        print(">>> Dung chuong trinh do chua dang nhap.")
         try: driver.quit()
         except Exception: pass
         sys.exit(1)
@@ -643,11 +819,11 @@ if __name__ == "__main__":
 
     try:
         for i, url in enumerate(urls, 1):
-            print(f"\n===== [{i}/{len(urls)}] ĐANG XỬ LÝ BÀI VIẾT =====")
+            print(f"\n===== [{i}/{len(urls)}] DANG XU LY BAI VIET =====")
 
             if not is_driver_alive(driver):
-                driver = create_driver()
-                ensure_logged_in(driver)
+                driver = create_driver(headless=args.headless)
+                ensure_logged_in(driver, headless=args.headless)
 
             data = scrape_one_post(driver, url)
             if data:
@@ -655,17 +831,60 @@ if __name__ == "__main__":
                 save_excel(all_data, output_filename)
 
             if i < len(urls):
-                delay_between_posts = random.uniform(12.0, 25.0)
-                print(f"-> Nghỉ an toàn {delay_between_posts:.1f} giây trước bài tiếp theo...")
+                delay_between_posts = 3.0 if HEADLESS_MODE else random.uniform(12.0, 25.0)
+                print(f"-> Nghi an toan {delay_between_posts:.1f} giay truoc bai tiep theo...")
                 time.sleep(delay_between_posts)
 
     except KeyboardInterrupt:
-        print("\n>>> Đã dừng thủ công (Ctrl+C).")
+        print("\n>>> Da dung thu cong (Ctrl+C).")
     finally:
+        # Tra cuu SDT qua FBnumber
+        uid_to_phone = {}
+        if not args.no_fbnumber and args.headless and urls:
+            print("\n===== DANG TRA CUU SO DIEN THOAI (FBnumber) =====")
+            uids, uid_map = collect_uids(driver)
+            print(f"-> Tim thay {len(uids)} User IDs, {len(uid_map)} co ten.")
+
+            # Backfill Facebook URL tu uid_map bang ten
+            matched_uids = 0
+            if uid_map:
+                from exporter import norm_name_key as _nnk
+                name_to_uid = {}
+                for _uid, _name in uid_map.items():
+                    key = _nnk(_name)
+                    if key:
+                        name_to_uid.setdefault(key, _uid)
+                for row in all_data:
+                    if not row.get("_uid"):
+                        row_key = _nnk(row.get("Tên KH", ""))
+                        if row_key and row_key in name_to_uid:
+                            _uid = name_to_uid[row_key]
+                            row["_uid"] = _uid
+                            row["Facebook"] = f"https://www.facebook.com/{_uid}"
+                            row["_profile_url"] = row["Facebook"]
+                            matched_uids += 1
+            if matched_uids:
+                print(f"-> [UID Backfill] Da match {matched_uids} lead bang ten tu GraphQL interceptor.")
+
+            uid_to_phone = fbnumber_search_phones(uids)
+            print(f"-> Tim thay {len(uid_to_phone)} so dien thoai.")
+            for uid, info in uid_to_phone.items():
+                phones = [info["number"], info["number2"]]
+                phones = [p for p in phones if p]
+                print(f"   {uid_map.get(uid, uid)}: {', '.join(phones)} ({info.get('location','')})")
+
+            merge_phone_lookup(all_data, uid_map, uid_to_phone)
+
         try: driver.quit()
         except Exception: pass
         if all_data:
+            # Loc bo lead khong co SDT
+            before = len(all_data)
+            all_data = [r for r in all_data if r.get("SĐT", "")]
+            skipped = before - len(all_data)
+            if skipped:
+                print(f"-> Da loc bo {skipped} lead khong co SDT.")
             save_excel(all_data, output_filename)
 
     if all_data:
-        print(f"\n>>> HOÀN THÀNH! Đã xuất {len(all_data)} bình luận chuẩn hóa sang file Excel.")
+        print(f"\n>>> HOAN THANH! Da xuat {len(all_data)} binh luan chuan hoa sang file Excel.")

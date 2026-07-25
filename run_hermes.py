@@ -80,7 +80,7 @@ class HermesSkills:
 
     # ------------------------------------------------------------------ 1 ---
     @staticmethod
-    def skill_read_and_scrape() -> bool:
+    def skill_read_and_scrape(headless=False) -> bool:
         """[SKILL 1] Đọc links.txt -> gọi app.py từng link -> gom vào raw_comments.txt"""
         if not config.LINKS_FILE.exists():
             print(f"LỖI SKILL 1: Không tìm thấy '{config.LINKS_FILE}'.")
@@ -109,13 +109,12 @@ class HermesSkills:
             print(f"-> [{index}/{len(links)}] {link}")
             tmp_excel.unlink(missing_ok=True)
 
-            # KHÁC BIỆT QUAN TRỌNG VỚI BẢN WINDOWS:
-            #   cũ: subprocess.run(["py", "app.py", link], shell=True)
-            #       - "py" không tồn tại trên macOS
-            #       - shell=True + list trên POSIX chỉ chạy phần tử đầu tiên
-            #   mới: dùng chính interpreter đang chạy, không qua shell
+            cmd = [config.PYTHON_BIN, "app.py", link, "--out", str(tmp_excel)]
+            if headless:
+                cmd.append("--headless")
+
             result = subprocess.run(
-                [config.PYTHON_BIN, "app.py", link, "--out", str(tmp_excel)],
+                cmd,
                 cwd=str(config.PROJECT_DIR),
                 check=False,
             )
@@ -333,12 +332,14 @@ def run_console() -> None:
         elif choice == "skill_lay_link_tu_drive":
             skills.skill_lay_link_tu_drive(input("Dán link Google Drive: ").strip())
         elif choice == "skill_cao_du_lieu":
-            skills.skill_read_and_scrape()
+            headless = input("Chạy ẩn (headless)? (y/N): ").strip().lower() == 'y'
+            skills.skill_read_and_scrape(headless=headless)
         elif choice == "skill_loc_deepseek":
             skills.skill_export_excel(skills.skill_deepseek_filter())
         elif choice == "skill_toan_nang":
-            print("\n>>> BẮT ĐẦU CHUỖI TỰ ĐỘNG <<<")
-            if skills.skill_read_and_scrape():
+            headless = input("Chạy ẩn (headless)? (y/N): ").strip().lower() == 'y'
+            print("\\n>>> BẮT ĐẦU CHUỖI TỰ ĐỘNG <<<")
+            if skills.skill_read_and_scrape(headless=headless):
                 skills.skill_export_excel(skills.skill_deepseek_filter())
             print(">>> HOÀN THÀNH <<<")
         else:
@@ -348,15 +349,19 @@ def run_console() -> None:
 if __name__ == "__main__":
     # Cho phép chạy không tương tác (Hermes agent gọi qua Telegram):
     #   python run_hermes.py skill_toan_nang
+    #   python run_hermes.py skill_toan_nang --headless
     if len(sys.argv) > 1:
-        command = sys.argv[1]
+        headless = "--headless" in sys.argv
+        # Loại bỏ --headless khỏi args để không ảnh hưởng so sánh command
+        clean_argv = [a for a in sys.argv[1:] if a != "--headless"]
+        command = clean_argv[0] if clean_argv else ""
         skills = HermesSkills()
         if command == "skill_cao_du_lieu":
-            skills.skill_read_and_scrape()
+            skills.skill_read_and_scrape(headless=headless)
         elif command == "skill_loc_deepseek":
             skills.skill_export_excel(skills.skill_deepseek_filter())
         elif command == "skill_toan_nang":
-            if skills.skill_read_and_scrape():
+            if skills.skill_read_and_scrape(headless=headless):
                 skills.skill_export_excel(skills.skill_deepseek_filter())
         elif command == "config":
             print(config.describe())
