@@ -126,6 +126,36 @@ sau đều bị chặn ngay ở bước push. Muốn bật lại: `CLAUDE_AUTOPU
 > không có gì chặn lại. Lỗi Codex bắt được ở PR #1 cho thấy điều này không phải
 > lo xa — bộ test cũ vẫn xanh 8/8 trong khi lỗi đã nằm sẵn trong code.
 
+### Vòng trao đổi tự động Hermes ↔ Claude — ĐÃ DỰNG
+
+Trước đây phải có người chuyển lời giữa hai bên. Nay chạy theo **sự kiện**:
+
+```
+Claude push main        -> notify-hermes.yml       -> Telegram gọi Hermes
+Hermes sửa ISSUES.md    -> hermes-bridge.yml       -> Claude sửa, MỞ PR
+Tag @claude issue/PR    -> claude.yml              -> Claude trả lời
+Mở/cập nhật PR          -> claude-code-review.yml  -> Claude review cùng Codex
+```
+
+**Đã kiểm chứng chạy thật:**
+
+| Mắt xích | Bằng chứng |
+|---|---|
+| Telegram báo Hermes | run `30170316828`, bước "Gửi Telegram" → `success` |
+| Token OAuth + action | `claude[bot]` trả lời issue #2 trong **13 giây**, đọc được `CLAUDE.md` và `ISSUES.md` |
+| CI chạy test | mỗi push lên `main` tự chạy `test_exporter.py` |
+
+**Chưa kiểm chứng:** `hermes-bridge.yml` chạy đầu-cuối. Nó dùng chung token và
+chung action với `claude.yml` (đã chạy được), nhưng phần riêng — lọc `paths`,
+chặn theo tác giả commit, mở PR — thì chưa có dịp chạy. Cách thử: **Hermes**
+thêm một issue vào `ISSUES.md` rồi push. Claude Code tự thử không được vì commit
+của nó mang tên tác giả `Claude`, đúng điều kiện chặn vòng lặp.
+
+> ⚠️ **Quota.** `CLAUDE_CODE_OAUTH_TOKEN` gắn với gói thuê bao, nên mỗi lần
+> workflow Claude chạy là tiêu quota chung với Claude Code hằng ngày. Hai lớp
+> chặn giữ mức tiêu: `hermes-bridge` chỉ nổ khi `ISSUES.md` đổi, và bỏ qua
+> commit do Claude tạo. Muốn chặn tay: thêm `[skip claude]` vào commit message.
+
 ### Còn treo
 
 Không còn việc nào chờ. `data-facebook` đã đưa biển báo deprecated lên `main`
