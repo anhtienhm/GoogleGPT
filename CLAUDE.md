@@ -36,9 +36,33 @@ URL post → scrape_one_post() → robust_parse_comment() → accumulate all_dat
 - **`FB_NUMBER_TOKEN` trong `config.py`** — là token API thật, hardcode để tiện chạy CLI, nhưng cẩn thận khi share repo
 - **Đã có trong `.gitignore`**: `.env`, `*.xlsx`, `FB_Profile*/`
 
-## Quy trình — làm thẳng trên `main`, KHÔNG mở PR
+## Quy trình — LAI: mặc định push thẳng `main`, động vào logic bóc tách thì mở PR
 
-**Không tạo Pull Request.** Sửa xong → chạy test → commit → push thẳng lên `main`.
+Mặc định **không** mở PR. Nhưng khi chạm vào **logic bóc tách**, mở PR để Codex soi.
+
+### Khi nào mở PR — tra bảng, đừng tự cân nhắc lại
+
+| Chạm vào | Cách làm |
+|---|---|
+| `robust_parse_comment()`, `clean_facebook_url()`, `extract_phone()`, `extract_uid_from_url()` | **PR** |
+| `LEAD_KEYWORDS`, `SELLER_KEYWORDS`, `ACTION_TEXTS`, `COMMENT_MARKERS`, `TIME_PATTERN`, `NON_PROFILE_PATHS` | **PR** |
+| XPath/CSS selector: `open_reel_comments()`, `select_newest_filter()`, `click_phone_icons_for_leads()` | **PR** |
+| `merge_phone_lookup()`, `apply_phone_info()`, `merge_rows()`, `lead_key()`, `norm_phone()`, `norm_name_key()` | **PR** |
+| `_append_raw()`, hằng số `COL_*` trong `run_hermes.py` | **PR** |
+| Tài liệu (`CLAUDE.md`, `SESSION_LOG.md`, `ISSUES.md`, `README.md`) | push thẳng |
+| `links.txt`, `.gitignore`, `.claude/hooks/` | push thẳng |
+| Thêm test vào `test_exporter.py` | push thẳng |
+| Đổi tên biến, sửa comment, format — **không đổi hành vi** | push thẳng |
+
+**Nguyên tắc đằng sau bảng:** vùng cần PR là vùng hỏng **âm thầm** — sai thì không
+crash, chỉ ra ít lead hơn hoặc dữ liệu bẩn, và không ai biết. Cả 3 lỗi Codex bắt
+được đều nằm đúng vùng đó. Không chắc thì mở PR.
+
+> ⚠️ **Test không thay được review.** Cả 3 lỗi Codex bắt được đều lọt qua bộ test
+> đang xanh 8/8. Test chỉ chặn thứ đã biết; review đọc được ý định của code và chỉ
+> ra thứ chưa ai nghĩ tới. Đừng lấy "test pass" làm lý do bỏ PR.
+
+### Luồng push thẳng
 
 ```bash
 git checkout main
@@ -49,6 +73,26 @@ bash .claude/hooks/auto-push.sh    # commit + push len main
 
 `main` **không còn được bảo vệ** trong `auto-push.sh` — đây là quy ước đã chốt,
 không phải nhầm lẫn. Muốn bật lại lớp bảo vệ thì đặt `CLAUDE_AUTOPUSH_PROTECT_MAIN=1`.
+
+### Luồng mở PR
+
+```bash
+git checkout -b claude/<mo-ta-ngan>
+# ... sua file ...
+python test_exporter.py
+git push -u origin claude/<mo-ta-ngan>
+# mo PR -> doi Codex review (thuong ~2-5 phut)
+# xu ly tung finding: KIEM CHUNG bang code that truoc, dung tin ngay
+# sua xong -> push -> merge -> xoa nhanh
+```
+
+Codex chỉ chạy khi có **PR** — mở PR, mark ready, hoặc comment `@codex review`.
+Push thẳng `main` không kích hoạt gì cả. Repo public, Codex không thiếu quyền,
+chỉ thiếu cớ để chạy.
+
+**Với mỗi finding:** tái hiện bằng code thật trước khi sửa, và kiểm tra luôn
+chiều ngược lại (bản vá có làm hỏng ca đang chạy đúng không). Bản vá đầu cho
+finding thứ nhất đã thiếu một nửa — Codex phải báo lại lần hai.
 
 > Không có CI trên repo. `test_exporter.py` là cổng kiểm tra **duy nhất**, và
 > nó chỉ chạy khi được gọi thủ công. Push code chưa chạy test là đẩy thẳng lỗi

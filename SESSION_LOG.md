@@ -97,10 +97,20 @@ regression vào `test_exporter.py` nhóm 3.
 ⚠️ **Repo chưa có CI** — 0 workflow, 0 check chạy trên PR. `python test_exporter.py`
 là cổng kiểm tra duy nhất, phải chạy thủ công trước khi push.
 
-### ⚠️ QUY TRÌNH ĐÃ ĐỔI — làm thẳng trên `main`, KHÔNG mở PR
+### ⚠️ QUY TRÌNH ĐÃ ĐỔI — LAI: mặc định push thẳng `main`, logic bóc tách thì mở PR
 
-Từ phiên này trở đi: sửa xong → chạy test → commit → **push thẳng lên `main`**.
-Không tạo Pull Request nữa.
+Mặc định: sửa xong → chạy test → commit → **push thẳng lên `main`**.
+
+**Ngoại lệ — mở PR** khi chạm vào logic bóc tách: `robust_parse_comment`,
+`clean_facebook_url`, `extract_phone`, danh sách từ khoá, `TIME_PATTERN`,
+XPath selector, `merge_phone_lookup`, `apply_phone_info`, `_append_raw`, `COL_*`.
+Bảng tra đầy đủ ở `CLAUDE.md`.
+
+**Vì sao giữ PR cho vùng đó:** Codex chỉ chạy khi có PR (mở PR / mark ready /
+comment `@codex review`) — push thẳng `main` không kích hoạt gì. Repo public,
+Codex không thiếu quyền, chỉ thiếu cớ. Và cả 3 lỗi Codex bắt được đều nằm trong
+vùng này, đều **lọt qua bộ test đang xanh 8/8**. Test chặn thứ đã biết; review
+chỉ ra thứ chưa ai nghĩ tới. Không thay thế nhau.
 
 ```bash
 git checkout main
