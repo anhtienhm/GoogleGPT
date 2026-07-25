@@ -20,6 +20,7 @@ URL post → scrape_one_post() → robust_parse_comment() → accumulate all_dat
 | `exporter.py` | Export engine: merge, lookup, save Excel (openpyxl) |
 | `config.py` | Cấu hình: token FBnumber (`FB_NUMBER_TOKEN`), Chrome profile path, extension path |
 | `.claude/hooks/auto-push.sh` | Auto-push script — chạy sau mỗi lần sửa file |
+| `ISSUES.md` | Bug report queue — Hermes ghi bug, Claude Code đọc & fix |
 | `links.txt` | Danh sách URL bài viết — 1 dòng/link, **URL trần bắt đầu bằng `http`** |
 
 > ⚠️ `app.py:806` và `run_hermes.py:95` đều lọc `line.strip().startswith("http")`.
@@ -53,6 +54,27 @@ bash .claude/hooks/auto-push.sh
 | `main branch is protected` | **KHÔNG** tự set `CLAUDE_AUTOPUSH_ALLOW_PROTECTED=1`. Hỏi user trước. |
 | `Remote conflict: git pull --rebase failed` | **KHÔNG** dùng `--force`. Conflict thật thì cần merge thủ công. |
 | `Permission denied` | Kiểm tra quyền truy cập remote. Báo user. |
+
+## ISSUES.md Workflow
+
+Hermes phát hiện bug → ghi vào `ISSUES.md`. Claude Code đọc file này **đầu mỗi phiên**, thấy issue chưa có `✅ fixed` thì tự fix.
+
+**Format mỗi issue:**
+```markdown
+## [YYYY-MM-DD HH:MM] Tiêu đề ngắn gọn
+
+**File:** tên-file.py:123
+**Mức độ:** critical | high | medium | low
+**Mô tả:** bug gì, hậu quả thế nào
+**Cách fix:** sửa cụ thể ra sao
+**Đã test:** ✅ / ❌ / ⚠️ chưa test được
+**Status:** (Claude Code điền) ✅ fixed in <commit>
+```
+
+**Quy tắc:**
+- Issues không bao giờ bị xoá — chỉ thêm dòng `**Status:** ✅ fixed in <sha>` khi xong
+- Claude Code `git add ISSUES.md` + commit cùng với file fix
+- Fix xong → chạy `test_urls.py` + `auto-push.sh`
 
 ## Cách chạy
 
