@@ -74,6 +74,26 @@ regression vào `test_exporter.py` nhóm 3.
 > **Bài học:** fallback "cứu dữ liệu" cần kiểm tra cả trường hợp nó *làm mất*
 > dữ liệu. Test cũ chỉ phủ ca 2 đoạn (tên + comment), không phủ ca 1 đoạn.
 
+**Codex review lần 2 bắt thêm 2 lỗi** (`5b52094`) — cả hai đã kiểm chứng, đều đúng:
+
+1. **Bản vá lần 1 chưa đủ.** Facebook còn tách 1 comment thành **nhiều** block
+   `dir='auto'`. Guard cũ chỉ chặn ca 1 block, nên ca 2 block vẫn hỏng:
+   ```
+   "ib giá bao nhiêu" + "ship về Hà Nội được không"  ->  None            (mất lead)
+   "ib giá"           + "tư vấn giúp mình"           ->  Tên KH = 'ib giá'  (mảnh comment thành tên)
+   ```
+   Fix: thêm `COMMENT_MARKERS`, khớp theo **ranh giới từ** chứ không substring
+   (`'ib'` không được khớp trong `"Thibault"`), cố tình bỏ các từ trùng tên
+   tiếng Việt (`'gia'` trong `"Gia Bảo"`). Lệch về phía **từ chối**.
+
+2. **`--no-fbnumber` bị `run_hermes` nuốt im lặng.** Chính tài liệu của repo
+   bảo "debug thì thêm `--no-fbnumber`", nhưng `run_hermes` chỉ lọc `--headless`
+   nên cờ đó bị bỏ qua hoàn toàn — vẫn gọi API, vẫn tiêu quota, không báo gì.
+   Fix: chuyển tiếp cờ xuống `app.py`, thêm cả prompt ở menu tương tác.
+
+> **Bài học 2:** khi ghi tài liệu một cách khắc phục, phải chạy thử đúng lệnh đó.
+> Tôi viết "thêm `--no-fbnumber`" mà không kiểm tra nó có đi qua `run_hermes` không.
+
 ⚠️ **Repo chưa có CI** — 0 workflow, 0 check chạy trên PR. `python test_exporter.py`
 là cổng kiểm tra duy nhất, phải chạy thủ công trước khi push.
 
