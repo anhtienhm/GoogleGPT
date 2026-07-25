@@ -107,6 +107,23 @@ row = app.robust_parse_comment(article(
 check("lay duoc ten khi khong co the <a>", row is not None and row["Tên KH"] == "Tran Thi Bich",
       row["Tên KH"] if row else None)
 
+# Regression (PR #1, Codex): article chi co DUY NHAT 1 doan dir=auto -> do la
+# noi dung comment, KHONG phai ten. Lay nham lam ten thi vong boc noi dung se
+# loai chinh no (text == author_name) -> comment rong -> lead bi bo IM LANG.
+row = app.robust_parse_comment(article(
+    '<div role="article"><div dir="auto">ib gia giup minh</div></div>'), POST_URL)
+check("1 doan dir=auto duy nhat -> KHONG bi bo", row is not None, "row = None, lead bi bo")
+if row:
+    check("  giu comment lam noi dung", row["Comment"] == "ib gia giup minh", row["Comment"])
+    check("  ten lui ve placeholder", row["Tên KH"] == "Nguoi dung Facebook", row["Tên KH"])
+
+# dir=auto long nhau, ben trong cung chi la comment -> van khong duoc lay lam ten
+row = app.robust_parse_comment(article(
+    '<div role="article"><div dir="auto"><span dir="auto">ib gia</span></div></div>'), POST_URL)
+check("dir=auto long nhau, chi co comment -> KHONG bi bo",
+      row is not None and row["Tên KH"] == "Nguoi dung Facebook",
+      "None" if row is None else row["Tên KH"])
+
 
 # --------------------------------------------------------------------------- #
 # 4. TIME_PATTERN phai khop timestamp CO DAU (Facebook render co dau)

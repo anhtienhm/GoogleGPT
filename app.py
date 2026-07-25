@@ -186,13 +186,22 @@ def robust_parse_comment(article, target_url):
     # 4b. Fallback: lay ten tu dir=auto element dau tien.
     #     Facebook khong render link cho ten trong group -> khong co fallback
     #     nay thi moi lead trong group deu la "Nguoi dung Facebook".
+    #     CHI lay khi con it nhat 1 doan khac de lam noi dung comment. Neu article
+    #     chi co DUY NHAT 1 doan text thi do la noi dung comment chu khong phai ten:
+    #     lay no lam ten se khien vong boc noi dung ben duoi loai chinh no
+    #     (text == author_name) -> comment rong -> lead bi bo IM LANG.
     if author_name == "Nguoi dung Facebook":
+        cands = []
         for el in article.find_all(['div', 'span'], dir='auto'):
             t = " ".join(el.get_text(' ', strip=True).split())
             if t and len(t) >= 2 and not is_junk(t) and not TIME_PATTERN.search(t) and not t.isdigit():
-                if len(t) < 50:      # ten, khong phai doan comment dai
-                    author_name = t
-                    break
+                cands.append(t)
+        # Dedupe + bo doan bi long trong doan khac (div/span dir=auto co the long nhau),
+        # giong het cach vong boc noi dung ben duoi xu ly.
+        cands = list(dict.fromkeys(cands))
+        cands = [b for b in cands if not any(b != o and b in o for o in cands)]
+        if len(cands) >= 2 and len(cands[0]) < 50:   # ten, khong phai doan comment dai
+            author_name = cands[0]
 
     # 5. Trich xuat thoi gian dang
     comment_time = extract_time_strict(article)
