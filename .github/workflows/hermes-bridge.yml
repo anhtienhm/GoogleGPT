@@ -1,0 +1,83 @@
+name: Hermes → Claude (hàng đợi ISSUES.md)
+
+# Chieu nguoc lai cua notify-hermes.yml:
+#   Claude push  -> notify-hermes.yml  -> Telegram goi Hermes
+#   Hermes push  -> workflow nay       -> Claude doc ISSUES.md va mo PR
+#
+# Chay theo SU KIEN, khong do dinh ky: khong ton phien rong, khong tre 1 tieng.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ISSUES.md'      # chi no khi hang doi thay doi
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  actions: read
+
+jobs:
+  xu-ly-hang-doi:
+    # CHONG VONG LAP: commit do Claude tao ra khong duoc kich hoat lai Claude.
+    # Thieu dieu kien nay thi moi lan Claude ghi "Status: fixed" vao ISSUES.md
+    # se no lai workflow -> chay vo tan -> dot sach quota.
+    if: >-
+      github.event.head_commit.author.name != 'Claude' &&
+      !contains(github.event.head_commit.message, '[skip claude]')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Kiểm tra đã có khoá chưa
+        id: guard
+        env:
+          KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -z "${KEY:-}" ]; then
+            echo "co_khoa=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Chua dat ANTHROPIC_API_KEY trong repo secrets -> bo qua."
+          else
+            echo "co_khoa=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - if: steps.guard.outputs.co_khoa == 'true'
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_args: "--max-turns 40"
+          prompt: |
+            Hermes vừa cập nhật `ISSUES.md` trong repo này. Xử lý hàng đợi bug.
+
+            ĐỌC TRƯỚC: `CLAUDE.md` — chứa quy trình bắt buộc, bảng tra khi nào
+            push thẳng `main` / khi nào mở PR, và bảng pitfalls đã từng mắc.
+
+            BƯỚC 1 — Xác định có việc không
+            Mở `ISSUES.md`. Issue nào KHÔNG có dòng `**Status:** ✅ fixed` là còn
+            tồn. Nếu không có issue nào còn tồn: DỪNG NGAY, không sửa gì, không
+            commit. Đây là kết cục hợp lệ và thường gặp.
+
+            BƯỚC 2 — Với mỗi issue còn tồn
+            - TÁI HIỆN bằng code thật trước khi sửa. Đừng tin mô tả issue ngay.
+              Lỗi ở repo này hầu hết thuộc loại "hỏng âm thầm": không crash, chỉ
+              ra dữ liệu rỗng hoặc thiếu, nên rất dễ kết luận nhầm cả hai hướng.
+            - Sửa xong phải kiểm tra CHIỀU NGƯỢC LẠI: bản vá có làm hỏng ca vốn
+              đang chạy đúng không. Đã từng có bản vá chỉ đúng một nửa và phải
+              sửa lại vòng hai.
+            - Chạy `python test_exporter.py` — BẮT BUỘC pass.
+            - Thêm assert regression cho đúng ca vừa sửa.
+            - Ghi `**Status:** ✅ fixed in <sha>` vào issue đó. KHÔNG xoá issue cũ.
+            - Thêm một entry vào đầu `SESSION_LOG.md` theo khuôn mẫu ở cuối file.
+
+            BƯỚC 3 — Giao kết quả
+            LUÔN mở Pull Request. TUYỆT ĐỐI không push thẳng lên `main`.
+            Lý do: bộ test hiện xanh 8/8 nhưng đã từng để lọt 3 lỗi logic mà chỉ
+            có review mới bắt ra. PR giữ được lớp soi đó (Codex review tự động),
+            và cũng để người còn kịp can thiệp.
+
+            LƯU Ý
+            - Không đụng vào repo `anhtienhm/data-facebook` — đã ngừng dùng.
+            - Nếu một issue mơ hồ hoặc cần quyết định thiết kế: đừng đoán. Ghi rõ
+              vướng mắc vào phần mô tả PR và để người quyết.
