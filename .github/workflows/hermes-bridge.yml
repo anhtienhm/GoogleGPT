@@ -2,9 +2,15 @@ name: Hermes → Claude (hàng đợi ISSUES.md)
 
 # Chieu nguoc lai cua notify-hermes.yml:
 #   Claude push  -> notify-hermes.yml  -> Telegram goi Hermes
-#   Hermes push  -> workflow nay       -> Claude doc ISSUES.md va mo PR
+#   Hermes push  -> workflow nay       -> mo issue tag @claude -> Claude mo PR
 #
-# Chay theo SU KIEN, khong do dinh ky: khong ton phien rong, khong tre 1 tieng.
+# ⚠️ VI SAO PHAI VONG QUA ISSUE, KHONG GOI THANG claude-code-action:
+# Ban dau workflow nay goi claude-code-action@v1 ngay tren su kien push.
+# Action tu choi voi loi "Unsupported event type: push" (run 30171564944).
+# Action CHI nhan: issue_comment, pull_request_review_comment, issues,
+# pull_request_review -- deu la su kien issue/PR.
+# Nen o day chi lam mot viec: mo issue tag @claude. Issue do kich hoat
+# claude.yml (da kiem chung chay tot), va Claude xu ly hang doi tu day.
 on:
   push:
     branches: [main]
@@ -12,13 +18,11 @@ on:
       - 'ISSUES.md'      # chi no khi hang doi thay doi
 
 permissions:
-  contents: write
+  contents: read
   issues: write
-  pull-requests: write
-  actions: read
 
 jobs:
-  xu-ly-hang-doi:
+  goi-claude:
     # CHONG VONG LAP: commit do Claude tao ra khong duoc kich hoat lai Claude.
     # Thieu dieu kien nay thi moi lan Claude ghi "Status: fixed" vao ISSUES.md
     # se no lai workflow -> chay vo tan -> dot sach quota.
@@ -28,56 +32,83 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      - name: Kiểm tra đã có khoá chưa
-        id: guard
-        env:
-          KEY: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      # Dung danh thuc Claude khi khong co viec -- moi lan chay la ton quota.
+      - name: Đếm issue còn tồn
+        id: check
         run: |
-          if [ -z "${KEY:-}" ]; then
-            echo "co_khoa=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::Chua dat CLAUDE_CODE_OAUTH_TOKEN trong repo secrets -> bo qua."
-          else
-            echo "co_khoa=true" >> "$GITHUB_OUTPUT"
-          fi
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import re
+          try:
+              raw = open('ISSUES.md', encoding='utf-8').read()
+          except FileNotFoundError:
+              print('con_ton=0'); raise SystemExit
+          # Moi issue bat dau bang mot heading "## [". Issue nao khong co
+          # dong Status kem dau tick la con ton.
+          #
+          # ⚠️ '^' + re.M la BAT BUOC: phan "Cách fix" cua issue thuong trich
+          # dan chinh dinh dang Status (vd: sua dong nay thanh `**Status:** ✅`).
+          # Khong neo dau dong thi doan huong dan do bi tinh la trang thai that
+          # -> moi issue deu bi coi la xong -> cau noi IM LANG khong bao gio no.
+          blocks = re.split(r'^## (?=\[)', raw, flags=re.M)[1:]
+          xong = re.compile(r'^\*\*Status:\*\*.*✅', re.M)
+          con_ton = sum(1 for b in blocks if not xong.search(b))
+          print(f'con_ton={con_ton}')
+          PY
 
-      - if: steps.guard.outputs.co_khoa == 'true'
-        uses: anthropics/claude-code-action@v1
-        with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          claude_args: "--max-turns 40"
-          prompt: |
-            Hermes vừa cập nhật `ISSUES.md` trong repo này. Xử lý hàng đợi bug.
+      - name: Báo khi hàng đợi rỗng
+        if: steps.check.outputs.con_ton == '0'
+        run: echo "::notice::ISSUES.md khong con issue nao ton -> khong goi Claude, khong ton quota."
 
-            ĐỌC TRƯỚC: `CLAUDE.md` — chứa quy trình bắt buộc, bảng tra khi nào
-            push thẳng `main` / khi nào mở PR, và bảng pitfalls đã từng mắc.
+      - name: Mở issue gọi @claude
+        if: steps.check.outputs.con_ton != '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+          # Truyen qua env, KHONG noi thang vao chuoi shell: commit message la
+          # dau vao tu do, noi thang se thanh lo hong chen lenh.
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+          PUSHER: ${{ github.event.pusher.name }}
+          CON_TON: ${{ steps.check.outputs.con_ton }}
+        run: |
+          set -euo pipefail
+          SUBJECT=$(printf '%s' "$COMMIT_MSG" | head -n 1)
 
-            BƯỚC 1 — Xác định có việc không
-            Mở `ISSUES.md`. Issue nào KHÔNG có dòng `**Status:** ✅ fixed` là còn
-            tồn. Nếu không có issue nào còn tồn: DỪNG NGAY, không sửa gì, không
-            commit. Đây là kết cục hợp lệ và thường gặp.
+          BODY=$(printf '%s\n' \
+            "Hermes vừa cập nhật \`ISSUES.md\` — còn **${CON_TON}** issue chưa có \`**Status:** ✅ fixed\`." \
+            "" \
+            "Commit: \`${SHA:0:7}\` · ${SUBJECT} · bởi ${PUSHER}" \
+            "" \
+            "---" \
+            "" \
+            "@claude Xử lý hàng đợi bug trong \`ISSUES.md\`." \
+            "" \
+            "**ĐỌC TRƯỚC:** \`CLAUDE.md\` — quy trình bắt buộc, bảng tra khi nào push thẳng \`main\` / khi nào mở PR, và bảng pitfalls đã từng mắc." \
+            "" \
+            "**Với mỗi issue chưa có \`**Status:** ✅ fixed\`:**" \
+            "" \
+            "1. **TÁI HIỆN bằng code thật trước khi sửa.** Đừng tin mô tả issue ngay. Lỗi ở repo này hầu hết thuộc loại *hỏng âm thầm*: không crash, chỉ ra dữ liệu rỗng hoặc thiếu, nên rất dễ kết luận nhầm cả hai hướng." \
+            "2. Sửa xong phải kiểm tra **CHIỀU NGƯỢC LẠI**: bản vá có làm hỏng ca vốn đang chạy đúng không. Đã từng có bản vá chỉ đúng một nửa và phải sửa lại vòng hai." \
+            "3. Chạy \`python test_exporter.py\` — **bắt buộc pass**." \
+            "4. Thêm assert regression cho đúng ca vừa sửa." \
+            "5. Ghi \`**Status:** ✅ fixed in <sha>\` vào issue đó trong \`ISSUES.md\`. **KHÔNG** xoá issue cũ." \
+            "6. Thêm một entry vào đầu \`SESSION_LOG.md\` theo khuôn mẫu ở cuối file." \
+            "" \
+            "**Giao kết quả:** LUÔN mở Pull Request. **Tuyệt đối không push thẳng \`main\`.** Bộ test hiện xanh 8/8 nhưng đã từng để lọt 3 lỗi logic mà chỉ review mới bắt ra — PR giữ lại lớp soi đó." \
+            "" \
+            "**Lưu ý:** không đụng repo \`anhtienhm/data-facebook\` (đã ngừng dùng). Nếu một issue mơ hồ hoặc cần quyết định thiết kế thì đừng đoán — ghi rõ vướng mắc vào mô tả PR và để người quyết." \
+            "" \
+            "Xong việc thì đóng issue này lại.")
 
-            BƯỚC 2 — Với mỗi issue còn tồn
-            - TÁI HIỆN bằng code thật trước khi sửa. Đừng tin mô tả issue ngay.
-              Lỗi ở repo này hầu hết thuộc loại "hỏng âm thầm": không crash, chỉ
-              ra dữ liệu rỗng hoặc thiếu, nên rất dễ kết luận nhầm cả hai hướng.
-            - Sửa xong phải kiểm tra CHIỀU NGƯỢC LẠI: bản vá có làm hỏng ca vốn
-              đang chạy đúng không. Đã từng có bản vá chỉ đúng một nửa và phải
-              sửa lại vòng hai.
-            - Chạy `python test_exporter.py` — BẮT BUỘC pass.
-            - Thêm assert regression cho đúng ca vừa sửa.
-            - Ghi `**Status:** ✅ fixed in <sha>` vào issue đó. KHÔNG xoá issue cũ.
-            - Thêm một entry vào đầu `SESSION_LOG.md` theo khuôn mẫu ở cuối file.
+          jq -Rn --arg t "🔔 Hermes cập nhật ISSUES.md — ${CON_TON} issue chờ xử lý" \
+                 --arg b "$BODY" \
+                 '{title: $t, body: $b}' > payload.json
 
-            BƯỚC 3 — Giao kết quả
-            LUÔN mở Pull Request. TUYỆT ĐỐI không push thẳng lên `main`.
-            Lý do: bộ test hiện xanh 8/8 nhưng đã từng để lọt 3 lỗi logic mà chỉ
-            có review mới bắt ra. PR giữ được lớp soi đó (Codex review tự động),
-            và cũng để người còn kịp can thiệp.
+          curl -sS --fail-with-body -X POST \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            -d @payload.json \
+            "https://api.github.com/repos/${REPO}/issues" > /dev/null
 
-            LƯU Ý
-            - Không đụng vào repo `anhtienhm/data-facebook` — đã ngừng dùng.
-            - Nếu một issue mơ hồ hoặc cần quyết định thiết kế: đừng đoán. Ghi rõ
-              vướng mắc vào phần mô tả PR và để người quyết.
+          echo "Da mo issue goi @claude."
