@@ -66,7 +66,14 @@ jobs:
       - name: Mở issue gọi @claude
         if: steps.check.outputs.con_ton != '0'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # ⚠️ PHAI dung PAT, KHONG dung GITHUB_TOKEN mac dinh.
+          # GitHub co tinh KHONG cho su kien sinh boi GITHUB_TOKEN kich hoat
+          # workflow moi (chong de quy). Issue tao bang GITHUB_TOKEN van hien
+          # ra binh thuong nhung claude.yml SE KHONG chay -> cau noi dut o nhip
+          # cuoi, va dut IM LANG (issue van mo, tuong nhu da xong).
+          # Da kiem chung: issue #5 tao bang GITHUB_TOKEN -> claude.yml 0 run.
+          GH_TOKEN: ${{ secrets.BRIDGE_PAT || secrets.GITHUB_TOKEN }}
+          CO_PAT: ${{ secrets.BRIDGE_PAT != '' }}
           REPO: ${{ github.repository }}
           SHA: ${{ github.sha }}
           # Truyen qua env, KHONG noi thang vao chuoi shell: commit message la
@@ -76,6 +83,11 @@ jobs:
           CON_TON: ${{ steps.check.outputs.con_ton }}
         run: |
           set -euo pipefail
+
+          if [ "$CO_PAT" != "true" ]; then
+            echo "::warning::Chua dat BRIDGE_PAT. Issue se duoc tao bang GITHUB_TOKEN, va GitHub KHONG cho su kien do kich hoat claude.yml -> Claude se khong tu chay. Them secret BRIDGE_PAT (Personal Access Token) de noi lai nhip cuoi."
+          fi
+
           SUBJECT=$(printf '%s' "$COMMIT_MSG" | head -n 1)
 
           BODY=$(printf '%s\n' \
@@ -95,7 +107,7 @@ jobs:
             "2. Sửa xong phải kiểm tra **CHIỀU NGƯỢC LẠI**: bản vá có làm hỏng ca vốn đang chạy đúng không. Đã từng có bản vá chỉ đúng một nửa và phải sửa lại vòng hai." \
             "3. Chạy \`python test_exporter.py\` — **bắt buộc pass**." \
             "4. Thêm assert regression cho đúng ca vừa sửa." \
-            "5. Ghi \`**Status:** ✅ fixed in <sha>\` vào issue đó trong \`ISSUES.md\`. **KHÔNG** xoá issue cũ." \
+            "5. Ghi \`**Status:** ✅ fixed in COMMIT_SHA\` (thay COMMIT_SHA bằng sha thật) vào issue đó trong \`ISSUES.md\`. **KHÔNG** xoá issue cũ." \
             "6. Thêm một entry vào đầu \`SESSION_LOG.md\` theo khuôn mẫu ở cuối file." \
             "" \
             "**Giao kết quả:** LUÔN mở Pull Request. **Tuyệt đối không push thẳng \`main\`.** Bộ test hiện xanh 8/8 nhưng đã từng để lọt 3 lỗi logic mà chỉ review mới bắt ra — PR giữ lại lớp soi đó." \
