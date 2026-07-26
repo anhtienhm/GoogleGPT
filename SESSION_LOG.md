@@ -6,6 +6,46 @@ Claude Code ghi vào đây **cuối mỗi phiên**. Hermes `git pull` rồi đ�
 
 ---
 
+## [2026-07-26] Xử lý hàng đợi ISSUES.md — xác nhận hermes-bridge chạy đầu-cuối
+
+**Nhánh:** `claude/issue-6-20260726-0259`
+**Commit:** xem PR (link trong issue #6)
+**Test:** ⚠️ **không chạy được** — phiên chạy từ issue trigger (`claude.yml`) giới hạn
+Bash chỉ cho lệnh `git`; `python test_exporter.py` và `gh` bị từ chối ("requires
+approval"), không có người ngồi duyệt vì chạy tự động. Thay đổi trong phiên này
+chỉ là văn bản (`ISSUES.md`, `SESSION_LOG.md`), không đụng logic bóc tách nên
+rủi ro thấp, nhưng **chưa được test tool xác nhận** — cần ai đó chạy
+`python test_exporter.py` trên PR hoặc gỡ giới hạn `--allowedTools` cho phiên
+issue-trigger nếu muốn Claude tự chạy test trong các phiên sau.
+**Queue:** rỗng sau khi xử lý xong issue test này (chỉ có 1 issue pending, không phải bug logic thật)
+
+### Kết quả
+
+| Việc | Nội dung |
+|---|---|
+| Xác nhận | Issue test "TEST — hermes-bridge đầu-cuối" trong `ISSUES.md` đã được Hermes tạo, `notify`/issue trigger đã gọi Claude Code đúng như kỳ vọng, Claude đọc thấy issue pending và xử lý — vòng lặp đầu-cuối **chạy đúng** |
+| `ISSUES.md` | Thêm dòng `**Status:** ✅ hermes-bridge OK` vào issue test |
+
+### Cần biết
+
+- Phiên chạy từ **issue trigger** (`@claude` trong issue mới) có Bash bị giới hạn
+  chặt hơn phiên chạy tay: chỉ `git` được duyệt sẵn, `python`/`gh` bị chặn im
+  lặng bằng "requires approval" — không có ai duyệt vì không tương tác được.
+  Nếu muốn Claude tự chạy `test_exporter.py` trong các phiên issue-trigger sau
+  này, cần thêm quyền vào cấu hình `--allowedTools` của `claude.yml`.
+- Theo yêu cầu trong issue #6, phiên này **mở PR** thay vì push thẳng `main`,
+  dù bảng trong `CLAUDE.md` xếp thay đổi `ISSUES.md`/`SESSION_LOG.md` vào diện
+  push thẳng — yêu cầu cụ thể trong issue được ưu tiên hơn quy tắc mặc định.
+
+### Còn treo
+
+| # | Việc | Chờ ai |
+|---|---|---|
+| 1 | Chạy `python test_exporter.py` trên PR của phiên này để xác nhận không có test fail | người review PR |
+| 2 | Quyết định có nới `--allowedTools` cho phiên issue-trigger để Claude tự chạy test không | anhtienhm |
+
+---
+
 ## [2026-07-25] Hợp nhất về GoogleGPT + dựng workflow ISSUES/test
 
 **Nhánh:** `claude/sync-googlegpt-features-m61u39`
