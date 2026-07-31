@@ -11,6 +11,7 @@ Claude Code: đọc file này đầu mỗi phiên. Issues chưa có `✅ fixed` 
 **Mô tả:** Issue test cho workflow tự động. Hermes đã chuyển sang `main` (không còn push nhầm nhánh cũ). Muốn kiểm tra: ISSUES.md push lên main → `hermes-bridge.yml` nổ → Claude Code đọc → sửa → mở PR.
 **Cách fix:** Claude sửa dòng này thành `**Status:** ✅ hermes-bridge OK, PR #N`.
 **Đã test:** ⚠️ đang test workflow
+**Status:** ✅ hermes-bridge OK, fixed in `82f3100` — vòng lặp đầu-cuối chạy đúng: Hermes push `ISSUES.md` → issue #6 gọi Claude Code → Claude Code đọc thấy issue này pending → sửa dòng này → mở PR. Xem PR trong bình luận issue #6.
 
 ---
 
