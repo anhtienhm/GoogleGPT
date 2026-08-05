@@ -215,9 +215,10 @@ check("row trong nhan SĐT tu API", all_data[1]["SĐT"] == "0988888888", all_dat
 # --------------------------------------------------------------------------- #
 # 7. Excel — pitfall #4 (key phai khop COLUMNS) va so 0 dau cua SDT
 # --------------------------------------------------------------------------- #
-print("\n[7] save_excel — 15 cot, hyperlink, SĐT giu so 0")
+print("\n[7] save_excel — 16 cot, hyperlink, SĐT giu so 0, Zalo")
 check("'Link bài viết' co trong COLUMNS", "Link bài viết" in COLUMNS)
-check("COLUMNS = 15 cot", len(COLUMNS) == 15, len(COLUMNS))
+check("'Zalo' co trong COLUMNS", "Zalo" in COLUMNS)
+check("COLUMNS = 16 cot", len(COLUMNS) == 16, len(COLUMNS))
 check("COL_WIDTHS khop COLUMNS", len(COL_WIDTHS) == len(COLUMNS), f"{len(COL_WIDTHS)} vs {len(COLUMNS)}")
 
 import openpyxl

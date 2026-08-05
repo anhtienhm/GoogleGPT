@@ -33,10 +33,10 @@ from openpyxl.utils import get_column_letter
 COLUMNS = [
     "Ngày tìm", "Tên KH", "SĐT", "Nhà mạng", "SĐT 2", "Nhà mạng 2",
     "Số lần tìm", "Email", "Emails", "Giới tính", "Ngày sinh",
-    "Location", "Comment", "Link bài viết", "Facebook",
+    "Location", "Comment", "Link bài viết", "Facebook", "Zalo",
 ]
 
-COL_WIDTHS = [19, 26, 14, 12, 14, 12, 10, 24, 24, 9, 12, 26, 50, 50, 44]
+COL_WIDTHS = [19, 26, 14, 12, 14, 12, 10, 24, 24, 9, 12, 26, 50, 50, 44, 30]
 PHONE_COLS = ("SĐT", "SĐT 2")          # phải ghi dạng text, giữ số 0 đầu
 WRAP_COLS = ("Comment", "Location")
 
@@ -347,6 +347,16 @@ def save_excel(all_data: Iterable[Dict[str, Any]], output_filename: str,
                     if url.startswith("http"):
                         cell.hyperlink = url
                         cell.font = link_font
+                elif col == "Zalo":
+                    # Link nhảy thẳng sang Zalo kết bạn: https://zalo.me/<sđt>
+                    phone = norm_phone(row.get("SĐT", ""))
+                    if phone:
+                        url = f"https://zalo.me/{phone}"
+                        cell.value = url
+                        cell.hyperlink = url
+                        cell.font = link_font
+                    else:
+                        cell.value = ""
                 elif col == "Link bài viết":
                     url = _s(value)
                     cell.value = url
