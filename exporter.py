@@ -89,12 +89,13 @@ def is_placeholder_name(value: Any) -> bool:
 
 
 def uid_from_url(url: Any) -> str:
-    """Lấy UID số từ profile URL. Giữ đồng bộ với extract_uid_from_url ở app.py."""
+    """Lấy UID từ profile URL (số hoặc pfbid). Giữ đồng bộ với extract_uid_from_url ở app.py."""
     u = _s(url)
-    for rx in (r"profile\.php\?id=(\d+)", r"/user/(\d+)", r"facebook\.com/(\d{10,})(?:[/?#]|$)"):
+    for rx in (r"pfbid[A-Za-z0-9]{10,}", r"/people/[^/]+/(\d+|pfbid[A-Za-z0-9]+)",
+               r"profile\.php\?id=(\d+)", r"/user/(\d+)", r"facebook\.com/(\d{10,})(?:[/?#]|$)"):
         m = re.search(rx, u)
         if m:
-            return m.group(1)
+            return m.group(1) if m.lastindex else m.group(0)
     return ""
 
 

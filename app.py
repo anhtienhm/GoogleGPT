@@ -95,7 +95,7 @@ def clean_facebook_url(url):
     if m:
         return f"https://www.facebook.com/profile.php?id={m.group(1)}"
 
-    m = re.search(r'/people/[^/]+/(\d+)', url)
+    m = re.search(r'/people/[^/]+/(pfbid[A-Za-z0-9]+|\d+)', url)
     if m:
         return f"https://www.facebook.com/profile.php?id={m.group(1)}"
 
@@ -134,9 +134,15 @@ def extract_phone(text):
 
 
 def extract_uid_from_url(url):
-    """Trich UID tu Facebook profile URL."""
+    """Trich UID tu Facebook profile URL (hỗ trợ cả UID số lẫn pfbid mới của FB 2026)."""
     if not url or url == "N/A":
         return None
+    m = re.search(r'pfbid[A-Za-z0-9]{10,}', url)
+    if m:
+        return m.group(0)
+    m = re.search(r'/people/[^/]+/(\d+|pfbid[A-Za-z0-9]+)', url)
+    if m:
+        return m.group(1)
     m = re.search(r'profile\.php\?id=(\d+)', url)
     if m:
         return m.group(1)

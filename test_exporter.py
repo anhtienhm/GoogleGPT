@@ -23,6 +23,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from bs4 import BeautifulSoup
 
 import app
+import exporter
 from exporter import (
     COLUMNS,
     COL_WIDTHS,
@@ -55,6 +56,8 @@ for url, want in [
     ("/profile.php?id=100012345678", "https://www.facebook.com/profile.php?id=100012345678"),
     ("https://www.facebook.com/profile.php?id=999&sk=about", "https://www.facebook.com/profile.php?id=999"),
     ("/groups/98765/user/100055512345/", "https://www.facebook.com/profile.php?id=100055512345"),
+    ("/people/Bich-Quan-Nguyen/pfbid02E8MPFrJKNHftphRYAtkRS3xKfJ6QRhUEdEEGkrJthQX1VMx1CBjMRoL1qJPAUTxcl/",
+     "https://www.facebook.com/profile.php?id=pfbid02E8MPFrJKNHftphRYAtkRS3xKfJ6QRhUEdEEGkrJthQX1VMx1CBjMRoL1qJPAUTxcl"),
     ("/nguyen.van.a", "https://www.facebook.com/nguyen.van.a"),
     ("https://m.facebook.com/tien.hoang.99", "https://www.facebook.com/tien.hoang.99"),
     ("/groups/98765/posts/111/", "N/A"),
@@ -62,6 +65,20 @@ for url, want in [
 ]:
     got = app.clean_facebook_url(url)
     check(f"{url} -> {got}", got == want, f"mong doi {want}")
+
+print("[1b] extract_uid_from_url / uid_from_url — UID pfbid (FB 2026)")
+PFBID = "pfbid02E8MPFrJKNHftphRYAtkRS3xKfJ6QRhUEdEEGkrJthQX1VMx1CBjMRoL1qJPAUTxcl"
+for url, want in [
+    (f"https://www.facebook.com/people/Bich-Quan-Nguyen/{PFBID}/", PFBID),
+    (f"https://www.facebook.com/profile.php?id={PFBID}", PFBID),
+    ("https://www.facebook.com/people/Le-Van-C/100012345678/", "100012345678"),
+    ("https://www.facebook.com/groups/98765/user/100055512345/", "100055512345"),
+    ("https://www.facebook.com/nguyen.van.a", ""),
+]:
+    got = app.extract_uid_from_url(url) or ""
+    check(f"extract_uid_from_url({url[:50]}...) -> {got[:20]}", got == want, f"mong doi {want[:20]}")
+    got2 = exporter.uid_from_url(url)
+    check(f"uid_from_url({url[:50]}...) -> {got2[:20]}", got2 == want, f"mong doi {want[:20]}")
 
 
 # --------------------------------------------------------------------------- #
