@@ -870,6 +870,8 @@ if __name__ == "__main__":
         sys.exit(1)
 
     all_data = []
+    uids_all: set = set()
+    uid_map_all: dict = {}
 
     try:
         for i, url in enumerate(urls, 1):
@@ -878,11 +880,23 @@ if __name__ == "__main__":
             if not is_driver_alive(driver):
                 driver = create_driver(headless=args.headless)
                 ensure_logged_in(driver, headless=args.headless)
+                if not args.no_fbnumber:
+                    inject_graphql_interceptor(driver)   # re-inject sau khi driver bi recreate
 
             data = scrape_one_post(driver, url)
             if data:
                 all_data.extend(data)
                 save_excel(all_data, output_filename)
+
+            # Gom UID NGAY SAU MOI BAI: window.__fb_uids__ bi reset moi lan dieu huong,
+            # collect cuoi cung chi con UID cua trang cuoi cung.
+            if not args.no_fbnumber:
+                try:
+                    _u, _m = collect_uids(driver)
+                    uids_all.update(_u)
+                    uid_map_all.update(_m)
+                except Exception:
+                    pass
 
             if i < len(urls):
                 delay_between_posts = 3.0 if HEADLESS_MODE else random.uniform(12.0, 25.0)
@@ -896,7 +910,7 @@ if __name__ == "__main__":
         uid_to_phone = {}
         if not args.no_fbnumber and urls:
             print("\n===== DANG TRA CUU SO DIEN THOAI (FBnumber) =====")
-            uids, uid_map = collect_uids(driver)
+            uids, uid_map = list(uids_all), uid_map_all
             print(f"-> Tim thay {len(uids)} User IDs, {len(uid_map)} co ten.")
 
             # Backfill Facebook URL tu uid_map bang ten
