@@ -34,3 +34,12 @@ prefix `STT|`, gạch đầu dòng, bullet, dấu nháy, thiếu `https://`.
 - sau `dict.fromkeys` (dedupe) vẫn 8 — không có link trùng
 
 ---
+
+## [2026-08-05 11:25] FBnumber trả SĐT nhưng match 0 vào lead → 13 lead bị lọc bỏ
+
+**File:** exporter.py (merge_phone_lookup / apply_phone_info), app.py (extract UID)
+**Mức độ:** high
+**Mô tả:** Chạy `app.py --headless` với 7 link (links.txt từ group watch). Token FBnumber MỚI hoạt động: interceptor bắt được 3 User IDs (có tên), API trả 2 SĐT: Văn Hùng Danh 0399995885 + 0888949336 (HCM), Nguyễn Phương 0777340487 (HCM). NHƯNG kết quả match: 0 bằng UID, 0 bằng tên → "Còn 13 lead chưa có SĐT (2 SĐT chưa dùng, số lượng lệch nên bỏ qua)" → lọc bỏ 13 lead → "Đã lưu 0 khách hàng vào Excel". Nghi vấn: UID của 13 lead không extract được từ href comment (extract_uid_from_url fail) nên không có gì để match; positional match bị chặn vì 13 lead ≠ 2 SĐT.
+**Cách fix:** Kiểm tra lead có `_uid` không sau khi scrape; nếu rỗng → debug `extract_uid_from_url` với href comment group (`/groups/<gid>/user/<uid>/`, `profile.php?id=`); cân nhắc cho positional match chạy khi số SĐT ≤ số lead (match theo thứ tự) thay vì bỏ qua hoàn toàn.
+**Đã test:** ✅ tái hiện được với token mới (log: "Match SĐT: 0 bằng UID, 0 bằng tên", "Đã lưu 0 khách hàng")
+**Status:**
