@@ -4,6 +4,26 @@ Claude Code: đọc file này đầu mỗi phiên. Issues chưa có `✅ fixed` 
 
 ---
 
+## [2026-08-06 09:10] venv_mac biến mất — cron chạy app.py crash ModuleNotFoundError
+
+**File:** setup_macos.sh / môi trường máy
+**Mức độ:** high
+**Mô tả:** Sáng 2026-08-06 cron `quet-data-fb` chạy tới bước 3 thì `python app.py --headless`
+chết ngay dòng 1: `ModuleNotFoundError: No module named 'bs4'`. Thư mục `~/GoogleGPT/venv_mac`
+KHÔNG tồn tại. Đã kiểm tra cả 3 python hệ thống (`/opt/homebrew`, `/usr/bin`, `/usr/local`) —
+không cái nào có `bs4`/`selenium`/`openpyxl`. Nghĩa là bước xuất báo cáo lead của cron đã và sẽ
+hỏng hoàn toàn mỗi ngày, trong khi bước 1 (quét FB) và bước 2 (push links.txt) vẫn chạy bình
+thường → dễ tưởng nhầm pipeline OK.
+**Cách fix:** Đã tạm khắc phục thủ công: `python3 -m venv venv_mac && ./venv_mac/bin/pip install
+-r requirements.txt` → app.py chạy lại OK, ra 1 lead. Cần fix gốc: (a) tìm xem cái gì xoá
+`venv_mac` (dọn dẹp đĩa? script rm -rf trong setup_macos.sh:13 chạy nhầm?), và (b) cho cron
+kiểm tra `venv_mac/bin/python` tồn tại trước khi chạy, thiếu thì tự dựng lại + báo lỗi rõ ràng
+thay vì crash traceback.
+**Đã test:** ✅ venv dựng lại, `app.py --headless` chạy hết, xuất `report_2026-08-06.xlsx` 1 lead
+**Status:**
+
+---
+
 ## [2026-07-26] TEST — hermes-bridge đầu-cuối
 
 **File:** ISSUES.md
